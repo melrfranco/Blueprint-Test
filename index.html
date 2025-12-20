@@ -1,0 +1,67 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Salon Service Planner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      :root {
+        /* Default Brand Colors - Will be overridden by script below if saved */
+        --color-brand-pink: #BE123C;
+        --color-brand-teal: #0F766E;
+        --color-brand-blue: #1E3A8A;
+        --color-brand-light-blue: #E0F2FE;
+        --color-brand-bg: #F8F9FA;
+      }
+    </style>
+    <script>
+      // IMMEDIATE BRANDING RESTORATION
+      // This runs before React loads to ensure colors are correct instantly.
+      (function() {
+        try {
+          const primary = localStorage.getItem('admin_brand_primary');
+          const secondary = localStorage.getItem('admin_brand_secondary');
+          const font = localStorage.getItem('admin_brand_font');
+          
+          if (primary) document.documentElement.style.setProperty('--color-brand-pink', primary);
+          if (secondary) document.documentElement.style.setProperty('--color-brand-teal', secondary);
+          if (font) document.body.classList.add(font);
+        } catch (e) {
+          console.log('Error loading branding prefs', e);
+        }
+      })();
+
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'brand-pink': 'var(--color-brand-pink)', 
+              'brand-teal': 'var(--color-brand-teal)', 
+              'brand-blue': 'var(--color-brand-blue)', 
+              'brand-light-blue': 'var(--color-brand-light-blue)', 
+              'brand-bg': 'var(--color-brand-bg)',
+            },
+          },
+        },
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.2",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.2/",
+    "react/": "https://esm.sh/react@^19.2.2/",
+    "recharts": "https://esm.sh/recharts@^3.5.1",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
