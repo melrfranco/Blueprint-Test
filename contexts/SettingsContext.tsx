@@ -7,6 +7,8 @@ import { supabase } from '../lib/supabase';
 export interface IntegrationSettings {
     provider: 'vagaro' | 'square' | 'mindbody';
     squareAccessToken?: string;
+    squareRefreshToken?: string;
+    squareMerchantId?: string;
     environment: 'sandbox' | 'production';
 }
 
@@ -152,11 +154,13 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             const parsed = saved ? JSON.parse(saved) : {};
             return { 
                 provider: 'square', 
-                squareAccessToken: '', 
+                squareAccessToken: '',
+                squareRefreshToken: '',
+                squareMerchantId: '',
                 environment: 'production', 
                 ...parsed 
             };
-        } catch { return { provider: 'square', squareAccessToken: '', environment: 'production' }; }
+        } catch { return { provider: 'square', squareAccessToken: '', squareRefreshToken: '', squareMerchantId: '', environment: 'production' }; }
     });
 
     const [textSize, setTextSize] = useState<AppTextSize>(() => (localStorage.getItem('admin_text_size') as AppTextSize) || 'M');

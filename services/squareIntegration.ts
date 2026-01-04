@@ -16,6 +16,10 @@ const PROD_API_BASE = 'https://connect.squareup.com/v2';
 const SANDBOX_API_BASE = 'https://connect.squareupsandbox.com/v2';
 const PROXY_URL = 'https://corsproxy.io/?';
 
+// These placeholders would be replaced by a secure secrets management system in a real production build.
+const SQUARE_CLIENT_ID_PLACEHOLDER = 'YOUR_SQUARE_APP_ID_PLACEHOLDER';
+const SQUARE_CLIENT_SECRET_PLACEHOLDER = 'YOUR_SQUARE_APP_SECRET_PLACEHOLDER';
+
 /**
  * --- SYSTEM INVARIANT DOCUMENTATION (Development Safety) ---
  *
@@ -109,6 +113,38 @@ async function fetchFromSquare(endpoint: string, accessToken: string, environmen
 }
 
 export const SquareIntegrationService = {
+  
+  exchangeCodeForToken: async (code: string, env: SquareEnvironment): Promise<{ accessToken: string, refreshToken: string, merchantId: string }> => {
+    const baseUrl = env === 'sandbox' ? SANDBOX_API_BASE : PROD_API_BASE;
+    const targetUrl = `${baseUrl}/oauth2/token`;
+    const proxiedUrl = `${PROXY_URL}${encodeURIComponent(targetUrl)}`;
+
+    const response = await fetch(proxiedUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        client_id: SQUARE_CLIENT_ID_PLACEHOLDER,
+        client_secret: SQUARE_CLIENT_SECRET_PLACEHOLDER,
+        code: code,
+        grant_type: 'authorization_code',
+        redirect_uri: `${window.location.origin}/square/callback`
+      }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+        const err = data.errors?.[0];
+        throw new Error(err ? `${err.detail}` : `OAuth Token Exchange Failed: ${response.status}`);
+    }
+    
+    return {
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+        merchantId: data.merchant_id,
+    };
+  },
   
   fetchLocation: async (accessToken: string, env: SquareEnvironment): Promise<SquareLocation> => {
       const data = await fetchFromSquare('/locations', accessToken, env);

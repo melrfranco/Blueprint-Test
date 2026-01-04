@@ -1,7 +1,5 @@
 
-
-
-import React, { useState } from 'react';
+import React, from 'react';
 import type { GeneratedPlan, UserRole } from './types';
 import { CURRENT_CLIENT } from './data/mockData';
 import RoleSwitcher from './components/RoleSwitcher';
@@ -15,6 +13,7 @@ import { SettingsProvider } from './contexts/SettingsContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PlanProvider, usePlans } from './contexts/PlanContext';
 import './styles/accessibility.css';
+import SquareCallback from './components/SquareCallback';
 
 const AppContent: React.FC = () => {
   const { user, login, logout, isAuthenticated } = useAuth();
@@ -63,6 +62,15 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   // Basic check for connection config existence
   const isDbConnected = !!supabase;
+  
+  // Simple routing for OAuth callback
+  if (window.location.pathname === '/square/callback') {
+    return (
+        <SettingsProvider>
+            <SquareCallback />
+        </SettingsProvider>
+    );
+  }
 
   return (
     <SettingsProvider>

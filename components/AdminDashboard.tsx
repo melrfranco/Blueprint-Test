@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import BottomNav from './BottomNav';
 import StylistDashboard from './StylistDashboard';
@@ -264,6 +264,18 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
       }
   };
 
+  useEffect(() => {
+    const justConnected = sessionStorage.getItem('square_just_connected');
+    if (justConnected) {
+        sessionStorage.removeItem('square_just_connected');
+        setActiveTab('settings');
+        setActiveSettingsView('integrations');
+        setSyncMessage("Square connected successfully! Starting initial sync...");
+        handleSync();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSaveNewBenefit = (tierIndex: number) => {
     if (newBenefitValue && newBenefitValue.trim()) {
         updateMembershipConfig(prevConfig => {
@@ -518,6 +530,24 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
                             <h3 className="text-xl font-black mb-1">Square Integration</h3>
                             <p className="text-xs font-bold text-gray-500 mb-6">Connect to Square to sync your service catalog, team, and clients automatically.</p>
                             
+                            {integration.squareMerchantId ? (
+                                <div className="bg-green-50 p-6 rounded-2xl border-2 border-green-200 text-center">
+                                    <CheckCircleIcon className="w-10 h-10 text-green-500 mx-auto mb-2" />
+                                    <p className="font-black text-green-900">Square Connected</p>
+                                    <p className="text-xs font-bold text-green-700">Merchant ID: {integration.squareMerchantId}</p>
+                                </div>
+                            ) : (
+                                <a href={`https://connect.squareup.com/oauth2/authorize?client_id=SQUARE_APP_ID_PLACEHOLDER&scope=CUSTOMERS_READ%20ITEMS_READ%20MERCHANT_PROFILE_READ%20APPOINTMENTS_READ%20APPOINTMENTS_WRITE%20TEAM_MEMBERS_READ&session=false&redirect_uri=${window.location.origin}/square/callback`} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center space-x-3 border-b-4 border-blue-800 active:scale-95 transition-all">
+                                    <span>Connect to Square</span>
+                                </a>
+                            )}
+
+                            <div className="relative flex items-center my-6">
+                                <div className="flex-grow border-t border-gray-300"></div>
+                                <span className="flex-shrink mx-4 text-gray-400 text-xs font-bold uppercase">Or Enter Manually</span>
+                                <div className="flex-grow border-t border-gray-300"></div>
+                            </div>
+
                             <div>
                                 <label className="block text-[10px] uppercase font-black tracking-widest mb-1">Square Access Token</label>
                                 <input type="password" value={integration.squareAccessToken} onChange={e => { updateIntegration({...integration, squareAccessToken: e.target.value }); markUnsaved(); }} className="w-full p-4 border-2 border-gray-300 text-gray-900 rounded-xl font-mono text-xs focus:ring-brand-accent focus:border-brand-accent outline-none transition-all" />
@@ -532,7 +562,7 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
                             </div>
                         </div>
 
-                        <button onClick={handleSync} disabled={isSyncing} className="w-full bg-gray-950 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center space-x-3 border-b-4 border-gray-800 active:scale-95 transition-all">
+                        <button onClick={handleSync} disabled={isSyncing || !integration.squareAccessToken} className="w-full bg-gray-950 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center space-x-3 border-b-4 border-gray-800 active:scale-95 transition-all disabled:bg-gray-400 disabled:cursor-not-allowed">
                             {isSyncing ? <RefreshIcon className="w-6 h-6 animate-spin" /> : <DatabaseIcon className="w-6 h-6" />}
                             <span>{isSyncing ? 'SYNCING DATA...' : 'FORCE SYNC WITH SQUARE'}</span>
                         </button>
