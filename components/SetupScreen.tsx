@@ -74,10 +74,10 @@ const SetupScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-brand-blue flex items-center justify-center p-4">
+    <div className="min-h-screen bg-brand-accent flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full relative">
         <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-brand-blue mb-2">Connect Backend</h1>
+            <h1 className="text-3xl font-bold text-brand-accent mb-2">Connect Backend</h1>
             <p className="text-gray-600">Enter your Supabase credentials.</p>
         </div>
 
@@ -90,7 +90,7 @@ const SetupScreen: React.FC = () => {
                         value={url}
                         onChange={e => setUrl(e.target.value)}
                         placeholder="https://your-project-id.supabase.co"
-                        className={`w-full p-3 border rounded-lg focus:ring-2 outline-none font-mono text-sm ${isValidUrl ? 'border-green-500 focus:ring-green-200' : 'border-gray-300 focus:ring-brand-pink'}`}
+                        className={`w-full p-3 border rounded-lg focus:ring-2 outline-none font-mono text-sm ${isValidUrl ? 'border-green-500 focus:ring-green-200' : 'border-gray-300 focus:ring-brand-primary'}`}
                     />
                     {isValidUrl && <CheckCircleIcon className="w-5 h-5 text-green-500 absolute right-3 top-3" />}
                 </div>
@@ -104,7 +104,7 @@ const SetupScreen: React.FC = () => {
                         value={key}
                         onChange={e => setKey(e.target.value)}
                         placeholder="eyJh..."
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-pink outline-none font-mono text-sm"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary outline-none font-mono text-sm"
                     />
                 </div>
             </div>
@@ -121,7 +121,7 @@ const SetupScreen: React.FC = () => {
             <button 
                 type="submit"
                 disabled={isTesting}
-                className={`w-full text-white font-bold py-3 rounded-full shadow-lg transition-colors mt-4 flex justify-center items-center ${isTesting ? 'bg-gray-400 cursor-wait' : 'bg-brand-pink hover:bg-pink-700'}`}
+                className={`w-full text-white font-bold py-3 rounded-full shadow-lg transition-colors mt-4 flex justify-center items-center ${isTesting ? 'bg-gray-400 cursor-wait' : 'bg-brand-primary hover:opacity-90'}`}
             >
                 {isTesting ? (
                     <>
@@ -138,7 +138,7 @@ const SetupScreen: React.FC = () => {
                      <button 
                         type="button" 
                         onClick={handleSkip} 
-                        className="text-xs text-gray-400 underline hover:text-brand-blue"
+                        className="text-xs text-gray-400 underline hover:text-brand-accent"
                      >
                         I'm sure these are correct, skip test
                      </button>

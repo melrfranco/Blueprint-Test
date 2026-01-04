@@ -23,7 +23,7 @@ export const ALL_SERVICES: Service[] = [
 export const MEMBERSHIP_TIERS: MembershipTier[] = [
     { id: 't1', name: 'Silver Member', minSpend: 0, perks: ['Access to Booking App', 'Birthday Discount'], color: '#9CA3AF' },
     { id: 't2', name: 'Gold Member', minSpend: 150, perks: ['10% Off Retail', 'Priority Holiday Booking', 'Free Bang Trims'], color: '#FBBF24' },
-    { id: 't3', name: 'Platinum VIP', minSpend: 300, perks: ['20% Off Retail', '1 Free Treatment / Month', 'Complimentary Blowouts'], color: '#E5E7EB' },
+    { id: 't3', name: 'Platinum Member', minSpend: 300, perks: ['20% Off Retail', '1 Free Treatment / Month', 'Complimentary Blowouts'], color: '#E5E7EB' },
 ];
 
 const clientHistoricalData: HistoricalData[] = [

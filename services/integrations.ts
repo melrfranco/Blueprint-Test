@@ -1,3 +1,4 @@
+
 import type { Service, Stylist } from '../types';
 import { ALL_SERVICES } from '../data/mockData';
 
@@ -41,7 +42,11 @@ const EXTERNAL_NEW_STYLIST: Stylist = {
         canBookAppointments: true, 
         canOfferDiscounts: true, 
         requiresDiscountApproval: false, 
-        viewGlobalReports: true 
+        viewGlobalReports: true,
+        // FIX: Added missing property 'viewClientContact' to satisfy the Stylist interface.
+        viewClientContact: true,
+        // FIX: Added missing property 'viewAllSalonPlans' to satisfy the Stylist interface.
+        viewAllSalonPlans: true
     }
 };
 

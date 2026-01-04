@@ -9,6 +9,20 @@ export interface Service {
   tierPrices?: Record<string, number>; 
 }
 
+export interface BrandingSettings {
+    salonName: string;
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+    font: string;
+    logoUrl?: string;
+}
+
+export interface MembershipConfig {
+    enabled: boolean;
+    tiers: MembershipTier[];
+}
+
 export interface ServiceLinkingConfig {
     enabled: boolean;
     triggerCategory: string; 
@@ -43,6 +57,8 @@ export type PlanStatus = 'draft' | 'active' | 'pending_approval';
 
 export type MembershipStatus = 'none' | 'offered' | 'active';
 
+export type AppTextSize = 'S' | 'M' | 'L';
+
 export interface PlanDetails {
     [serviceId: string]: {
         firstDate: Date | null;
@@ -59,6 +75,8 @@ export interface GeneratedPlan {
     id: string;
     status: PlanStatus; 
     membershipStatus: MembershipStatus;
+    membershipOfferSentAt?: string | null;
+    membershipOfferAcceptedAt?: string | null;
     createdAt: string;
     stylistId: string;
     stylistName: string;
@@ -88,6 +106,8 @@ export interface Stylist {
         canOfferDiscounts: boolean;
         requiresDiscountApproval: boolean;
         viewGlobalReports: boolean;
+        viewClientContact: boolean;
+        viewAllSalonPlans: boolean;
     };
 }
 
@@ -103,7 +123,9 @@ export interface User {
     id: string | number;
     name: string;
     role: UserRole;
+    email?: string;
     avatarUrl?: string;
     stylistData?: Stylist;
     clientData?: Client;
+    isMock?: boolean;
 }

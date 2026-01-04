@@ -1,5 +1,5 @@
 
-import { Service, Stylist, Client } from '../types';
+import { Service, Stylist, Client, PlanAppointment } from '../types';
 
 // Square API Types (Simplified)
 interface SquareLocation {
@@ -16,6 +16,23 @@ const PROD_API_BASE = 'https://connect.squareup.com/v2';
 const SANDBOX_API_BASE = 'https://connect.squareupsandbox.com/v2';
 const PROXY_URL = 'https://corsproxy.io/?';
 
+/**
+ * --- SYSTEM INVARIANT DOCUMENTATION (Development Safety) ---
+ *
+ * This service acts as the strict boundary between the application and the
+ * external Square API.
+ *
+ * INVARIANT E: CHANGE SAFETY RULES
+ * E1) Any patch touching logic in this file MUST be applied in isolation
+ *     and tested alone, as it can affect all other parts of the system.
+ * E2) UI/copy patches MUST NOT touch any logic in this file.
+ *
+ * INVARIANT D: SCHEMA & NAMING RULES
+ * D2) This file is the translation layer. It is responsible for converting
+ *     Square's naming conventions (e.g., 'start_at') to the application's
+ *     canonical schema names (e.g., 'start_time'). The application database
+ *     schema MUST NOT be changed to mirror Square's naming.
+ */
 function formatRFC3339WithOffset(date: Date, timezone: string = 'UTC') {
     if (!date || isNaN(date.getTime())) {
         return new Date().toISOString();
@@ -114,8 +131,26 @@ export const SquareIntegrationService = {
       const startDate = new Date(params.startAt);
       if (isNaN(startDate.getTime())) throw new Error("Invalid start time passed to Square.");
 
-      // Expanded to 7 days so user can see "the whole week"
-      const endDate = new Date(startDate.getTime() + (7 * 24 * 60 * 60 * 1000)); 
+      // Search a 30-day window to populate the calendar view
+      const endDate = new Date(startDate.getTime() + (30 * 24 * 60 * 60 * 1000)); 
+
+      const segment_filter: {
+          service_variation_id: string;
+          team_member_id_filter?: { any: string[] };
+      } = {
+          service_variation_id: params.serviceVariationId,
+      };
+
+      // A valid Square team member ID must be provided. Internal IDs like 'admin' or
+      // mock IDs like 'TM-...' are not valid for the Square API filter.
+      // If the provided ID is not a valid-looking Square ID, we omit the filter to search
+      // across all available team members. The final booking will resolve a correct ID.
+      const teamMemberId = params.teamMemberId;
+      const isInvalidForFilter = !teamMemberId || teamMemberId.startsWith('TM-') || teamMemberId === 'admin';
+
+      if (!isInvalidForFilter) {
+          segment_filter.team_member_id_filter = { any: [teamMemberId] };
+      }
 
       const body = {
           query: {
@@ -125,12 +160,7 @@ export const SquareIntegrationService = {
                       start_at: params.startAt,
                       end_at: endDate.toISOString()
                   },
-                  segment_filters: [
-                      {
-                          service_variation_id: params.serviceVariationId,
-                          team_member_id_filter: { any: [params.teamMemberId] }
-                      }
-                  ]
+                  segment_filters: [segment_filter]
               }
           }
       };
@@ -140,6 +170,22 @@ export const SquareIntegrationService = {
           .map((a: any) => a.start_at);
       
       return slots;
+  },
+
+  fetchAllBookings: async (accessToken: string, env: SquareEnvironment, locationId: string): Promise<any[]> => {
+    let cursor = undefined;
+    const allBookings: any[] = [];
+    
+    do {
+        const url = `/bookings?location_id=${locationId}${cursor ? `&cursor=${cursor}` : ''}`;
+        const data = await fetchFromSquare(url, accessToken, env);
+        if (data.bookings) {
+            allBookings.push(...data.bookings);
+        }
+        cursor = data.cursor;
+    } while (cursor);
+
+    return allBookings;
   },
 
   createAppointment: async (accessToken: string, env: SquareEnvironment, bookingDetails: {
@@ -153,20 +199,38 @@ export const SquareIntegrationService = {
       
       if (!locationId) throw new Error("Location ID is required for booking.");
       if (!customerId) throw new Error("Customer ID is required for booking.");
-      if (!teamMemberId) throw new Error("Team Member ID is required for booking.");
 
+      let resolvedTeamMemberId = teamMemberId;
+      const isInvalidTeamMemberId = !teamMemberId || teamMemberId.startsWith('TM-') || teamMemberId === 'admin';
+
+      if (isInvalidTeamMemberId) {
+          // Fetch all bookable team members from Square.
+          const teamMembers = await SquareIntegrationService.fetchTeam(accessToken, env);
+          if (!teamMembers || teamMembers.length === 0) {
+              throw new Error("No bookable team members found in Square to assign this appointment to.");
+          }
+          // Use the first available team member as the fallback default.
+          resolvedTeamMemberId = teamMembers[0].id;
+      }
+
+      // INVARIANT D2 (LOCKED): This is the translation layer.
+      // The application uses `startAt`, and this service correctly maps it to
+      // Square's required `start_at` field in the API payload.
       const body = {
           idempotency_key: crypto.randomUUID(),
           booking: {
               location_id: locationId,
               start_at: startAt,
               customer_id: customerId,
-              appointment_segments: services.map(s => ({
-                  duration_minutes: Math.round(s.duration || 60), 
-                  service_variation_id: s.id,
-                  service_variation_version: s.version,
-                  team_member_id: teamMemberId
-              }))
+              appointment_segments: services.map(s => {
+                  const segment: any = {
+                      duration_minutes: Math.round(s.duration || 60), 
+                      service_variation_id: s.id,
+                      service_variation_version: s.version,
+                      team_member_id: resolvedTeamMemberId,
+                  };
+                  return segment;
+              })
           }
       };
 

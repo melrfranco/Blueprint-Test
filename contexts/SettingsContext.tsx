@@ -1,14 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ALL_SERVICES, STYLIST_LEVELS, MEMBERSHIP_TIERS, MOCK_CLIENTS } from '../data/mockData';
-import type { Service, StylistLevel, Stylist, MembershipTier, Client, ServiceLinkingConfig } from '../types';
-
-interface BrandingSettings {
-    salonName: string;
-    primaryColor: string;
-    secondaryColor: string;
-    font: string;
-}
+import type { Service, StylistLevel, Stylist, MembershipTier, Client, ServiceLinkingConfig, BrandingSettings, MembershipConfig, AppTextSize, User } from '../types';
+import { supabase } from '../lib/supabase';
 
 export interface IntegrationSettings {
     provider: 'vagaro' | 'square' | 'mindbody';
@@ -21,18 +15,25 @@ interface SettingsContextType {
     levels: StylistLevel[];
     stylists: Stylist[];
     clients: Client[];
-    membershipTiers: MembershipTier[];
+    membershipConfig: MembershipConfig;
     branding: BrandingSettings;
     integration: IntegrationSettings;
     linkingConfig: ServiceLinkingConfig;
+    textSize: AppTextSize;
+    pushAlertsEnabled: boolean;
+    pinnedReports: { [userId: string]: string[] };
     updateServices: (services: Service[]) => void;
     updateLevels: (levels: StylistLevel[]) => void;
     updateStylists: (stylists: Stylist[]) => void;
     updateClients: (clients: Client[]) => void;
-    updateMembershipTiers: (tiers: MembershipTier[]) => void;
+    updateMembershipConfig: React.Dispatch<React.SetStateAction<MembershipConfig>>;
     updateBranding: (branding: BrandingSettings) => void;
     updateIntegration: (integration: IntegrationSettings) => void;
     updateLinkingConfig: (config: ServiceLinkingConfig) => void;
+    updateTextSize: (size: AppTextSize) => void;
+    updatePushAlertsEnabled: (enabled: boolean) => void;
+    updatePinnedReports: (userId: string | number, reportIds: string[]) => void;
+    createClient: (clientData: { name: string; email: string }) => Promise<Client>;
     saveAll: () => void;
 }
 
@@ -82,7 +83,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
                         canBookAppointments: true, 
                         canOfferDiscounts: true, 
                         requiresDiscountApproval: false, 
-                        viewGlobalReports: false 
+                        viewGlobalReports: false,
+                        viewClientContact: true,
+                        viewAllSalonPlans: false
                     } 
                 },
                 { 
@@ -95,7 +98,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
                         canBookAppointments: true, 
                         canOfferDiscounts: true, 
                         requiresDiscountApproval: false, 
-                        viewGlobalReports: true 
+                        viewGlobalReports: true,
+                        viewClientContact: true,
+                        viewAllSalonPlans: true
                     } 
                 },
                 { 
@@ -108,7 +113,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
                         canBookAppointments: false, 
                         canOfferDiscounts: false, 
                         requiresDiscountApproval: true, 
-                        viewGlobalReports: false 
+                        viewGlobalReports: false,
+                        viewClientContact: false,
+                        viewAllSalonPlans: false
                     } 
                 },
             ];
@@ -122,11 +129,11 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         } catch { return MOCK_CLIENTS; }
     });
 
-    const [membershipTiers, setMembershipTiers] = useState<MembershipTier[]>(() => {
+    const [membershipConfig, setMembershipConfig] = useState<MembershipConfig>(() => {
         try {
-            const saved = localStorage.getItem('admin_memberships');
-            return saved ? JSON.parse(saved) : MEMBERSHIP_TIERS;
-        } catch { return MEMBERSHIP_TIERS; }
+            const saved = localStorage.getItem('admin_membership_config');
+            return saved ? JSON.parse(saved) : { enabled: true, tiers: MEMBERSHIP_TIERS };
+        } catch { return { enabled: true, tiers: MEMBERSHIP_TIERS }; }
     });
 
     const [branding, setBranding] = useState<BrandingSettings>(() => {
@@ -134,7 +141,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             salonName: localStorage.getItem('admin_brand_name') || 'Luxe Salon & Spa',
             primaryColor: localStorage.getItem('admin_brand_primary') || '#BE123C',
             secondaryColor: localStorage.getItem('admin_brand_secondary') || '#0F766E',
-            font: localStorage.getItem('admin_brand_font') || 'font-sans'
+            accentColor: localStorage.getItem('admin_brand_accent') || '#1E3A8A',
+            font: localStorage.getItem('admin_brand_font') || 'Roboto'
         };
     });
 
@@ -151,12 +159,95 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         } catch { return { provider: 'square', squareAccessToken: '', environment: 'production' }; }
     });
 
+    const [textSize, setTextSize] = useState<AppTextSize>(() => (localStorage.getItem('admin_text_size') as AppTextSize) || 'M');
+    const [pushAlertsEnabled, setPushAlertsEnabled] = useState<boolean>(() => localStorage.getItem('admin_push_alerts_enabled') === 'true');
+    const [pinnedReports, setPinnedReports] = useState<{ [userId: string]: string[] }>(() => {
+        try {
+            const saved = localStorage.getItem('admin_pinned_reports');
+            return saved ? JSON.parse(saved) : {};
+        } catch { return {}; }
+    });
+
     useEffect(() => {
-        document.documentElement.style.setProperty('--color-brand-pink', branding.primaryColor);
-        document.documentElement.style.setProperty('--color-brand-teal', branding.secondaryColor);
+        document.documentElement.style.setProperty('--color-brand-primary', branding.primaryColor);
+        document.documentElement.style.setProperty('--color-brand-secondary', branding.secondaryColor);
+        document.documentElement.style.setProperty('--color-brand-accent', branding.accentColor);
+        
+        // Font logic
         document.body.classList.remove('font-sans', 'font-serif', 'font-mono');
-        document.body.classList.add(branding.font);
+        const font = branding.font;
+
+        if (font && !['font-sans', 'font-serif', 'font-mono'].includes(font)) {
+            const fontId = `google-font-${font.replace(/ /g, '-')}`;
+            if (!document.getElementById(fontId)) {
+                const link = document.createElement('link');
+                link.id = fontId;
+                link.href = `https://fonts.googleapis.com/css2?family=${font.replace(/ /g, '+')}:wght@400;700;900&display=swap`;
+                link.rel = 'stylesheet';
+                document.head.appendChild(link);
+            }
+            document.body.style.fontFamily = `'${font}', sans-serif`;
+        } else {
+             document.body.classList.add(font);
+             document.body.style.fontFamily = '';
+        }
     }, [branding]);
+
+    useEffect(() => {
+        document.body.classList.remove('text-size-s', 'text-size-m', 'text-size-l');
+        document.body.classList.add(`text-size-${textSize.toLowerCase()}`);
+    }, [textSize]);
+
+    const updateTextSize = (size: AppTextSize) => {
+        setTextSize(size);
+        localStorage.setItem('admin_text_size', size);
+    };
+
+    const updatePushAlertsEnabled = (enabled: boolean) => {
+        setPushAlertsEnabled(enabled);
+        localStorage.setItem('admin_push_alerts_enabled', String(enabled));
+    };
+
+    const updatePinnedReports = (userId: string | number, reportIds: string[]) => {
+        const newPinned = { ...pinnedReports, [userId.toString()]: reportIds };
+        setPinnedReports(newPinned);
+        localStorage.setItem('admin_pinned_reports', JSON.stringify(newPinned));
+    };
+
+    const createClient = async (clientData: { name: string, email: string }): Promise<Client> => {
+        if (!supabase) throw new Error("Supabase is not initialized.");
+        
+        const avatar_url = `https://ui-avatars.com/api/?name=${encodeURIComponent(clientData.name)}&background=random`;
+
+        const { data, error } = await supabase
+            .from('clients')
+            .insert({
+                name: clientData.name,
+                email: clientData.email,
+                avatar_url
+            })
+            .select()
+            .single();
+
+        if (error) {
+            console.error("Supabase client creation error:", error);
+            throw error;
+        }
+
+        const newClient: Client = {
+            id: data.id,
+            externalId: data.external_id,
+            name: data.name,
+            email: data.email,
+            phone: data.phone,
+            avatarUrl: data.avatar_url,
+            historicalData: []
+        };
+        
+        setClients(prev => [...prev, newClient]);
+        
+        return newClient;
+    };
 
     const saveAll = () => {
         try {
@@ -165,11 +256,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             localStorage.setItem('admin_levels', JSON.stringify(levels));
             localStorage.setItem('admin_team', JSON.stringify(stylists));
             localStorage.setItem('admin_clients', JSON.stringify(clients));
-            localStorage.setItem('admin_memberships', JSON.stringify(membershipTiers));
+            localStorage.setItem('admin_membership_config', JSON.stringify(membershipConfig));
             localStorage.setItem('admin_integration', JSON.stringify(integration));
             localStorage.setItem('admin_brand_name', branding.salonName);
             localStorage.setItem('admin_brand_primary', branding.primaryColor);
             localStorage.setItem('admin_brand_secondary', branding.secondaryColor);
+            localStorage.setItem('admin_brand_accent', branding.accentColor);
             localStorage.setItem('admin_brand_font', branding.font);
         } catch (e) {
             console.error('Failed to save settings:', e);
@@ -178,15 +270,19 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     return (
         <SettingsContext.Provider value={{
-            services, levels, stylists, clients, membershipTiers, branding, integration, linkingConfig,
+            services, levels, stylists, clients, membershipConfig, branding, integration, linkingConfig, textSize, pushAlertsEnabled, pinnedReports,
             updateServices: setServices,
             updateLevels: setLevels,
             updateStylists: setStylists,
             updateClients: setClients,
-            updateMembershipTiers: setMembershipTiers,
+            updateMembershipConfig: setMembershipConfig,
             updateBranding: setBranding,
             updateIntegration: setIntegration,
             updateLinkingConfig: setLinkingConfig,
+            updateTextSize,
+            updatePushAlertsEnabled,
+            updatePinnedReports,
+            createClient,
             saveAll
         }}>
             {children}

@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import type { Service, PlanDetails } from '../types';
 import { CURRENT_CLIENT } from '../data/mockData';
+import { useSettings } from '../contexts/SettingsContext';
+import { ensureAccessibleColor } from '../utils/ensureAccessibleColor';
 
 interface SetDatesStepProps {
   selectedServices: Service[];
@@ -16,6 +18,7 @@ const SetDatesStep: React.FC<SetDatesStepProps> = ({ selectedServices, planDetai
   const [localDetails, setLocalDetails] = useState<PlanDetails>(planDetails);
   const [selections, setSelections] = useState<{[key: string]: SelectionMode | null}>({});
   const [offsets, setOffsets] = useState<{[key: string]: number}>({});
+  const { branding } = useSettings();
 
   useEffect(() => {
     setLocalDetails(planDetails);
@@ -44,49 +47,56 @@ const SetDatesStep: React.FC<SetDatesStepProps> = ({ selectedServices, planDetai
   const isNextDisabled = selectedServices.some(service => !localDetails[service.id]?.firstDate);
 
   const getButtonClass = (isSelected: boolean, isDisabled: boolean) => {
-      if (isDisabled) return "bg-gray-100 text-gray-500 border border-gray-300 cursor-not-allowed";
-      if (isSelected) return "bg-brand-teal text-white border border-brand-teal shadow-md";
-      return "bg-white text-brand-blue border border-gray-400 hover:border-brand-blue hover:bg-gray-50 shadow-sm";
+      let base = "p-3 rounded-lg transition-all ";
+      if (isDisabled) return base + "bg-gray-100 text-gray-500 border border-gray-300 cursor-not-allowed";
+      if (isSelected) return base + "shadow-md"; // Style will be applied
+      return base + "bg-white text-gray-800 border border-gray-400 hover:border-gray-600 hover:bg-gray-50 shadow-sm";
   };
 
   return (
     <div className="flex flex-col h-full p-4 pb-12">
       <div className="text-center p-4">
-        <div className="relative w-full h-2 bg-gray-200 mb-4 rounded-full"><div className="absolute top-0 left-0 h-2 bg-brand-teal rounded-full" style={{width: '33%'}}></div></div>
-        <h1 className="text-2xl font-bold text-brand-blue">First Service Date</h1>
+        <div className="relative w-full h-2 bg-gray-200 mb-4 rounded-full"><div className="absolute top-0 left-0 h-2 bg-brand-secondary rounded-full" style={{width: '33%'}}></div></div>
+        <h1 className="text-2xl font-bold text-gray-900">First Service Date</h1>
       </div>
       
       <div className="flex-grow overflow-y-auto p-4 space-y-6">
         {selectedServices.map(service => (
           <div key={service.id} className="p-4 rounded-xl bg-gray-50 border border-gray-200 shadow-sm">
-            <h3 className="font-bold text-lg text-brand-blue mb-3">{service.name}</h3>
+            <h3 className="font-bold text-lg text-gray-900 mb-3">{service.name}</h3>
             
             <div className="grid grid-cols-2 gap-3 text-sm font-bold">
                 <button 
                     onClick={() => handleDateChange(service.id, new Date(), 'today')} 
-                    className={`p-3 rounded-lg transition-all ${getButtonClass(selections[service.id] === 'today', false)}`}
+                    className={getButtonClass(selections[service.id] === 'today', false)}
+                    style={selections[service.id] === 'today' ? { backgroundColor: branding.secondaryColor, color: ensureAccessibleColor('#FFFFFF', branding.secondaryColor, '#1F2937'), borderColor: branding.secondaryColor } : {}}
                 >
                     Today
                 </button>
                 <button 
                     onClick={() => handleDateChange(service.id, CURRENT_CLIENT.nextAppointmentDate || null, 'next')} 
                     disabled={!CURRENT_CLIENT.nextAppointmentDate} 
-                    className={`p-3 rounded-lg transition-all ${getButtonClass(selections[service.id] === 'next', !CURRENT_CLIENT.nextAppointmentDate)}`}
+                    className={getButtonClass(selections[service.id] === 'next', !CURRENT_CLIENT.nextAppointmentDate)}
+                    style={selections[service.id] === 'next' ? { backgroundColor: branding.secondaryColor, color: ensureAccessibleColor('#FFFFFF', branding.secondaryColor, '#1F2937'), borderColor: branding.secondaryColor } : {}}
                 >
                     Next Scheduled
                 </button>
                 <button 
                     onClick={() => handleDateChange(service.id, CURRENT_CLIENT.lastAppointmentDate || null, 'last')} 
                     disabled={!CURRENT_CLIENT.lastAppointmentDate} 
-                    className={`col-span-2 p-3 rounded-lg transition-all ${getButtonClass(selections[service.id] === 'last', !CURRENT_CLIENT.lastAppointmentDate)}`}
+                    className={`col-span-2 ${getButtonClass(selections[service.id] === 'last', !CURRENT_CLIENT.lastAppointmentDate)}`}
+                    style={selections[service.id] === 'last' ? { backgroundColor: branding.secondaryColor, color: ensureAccessibleColor('#FFFFFF', branding.secondaryColor, '#1F2937'), borderColor: branding.secondaryColor } : {}}
                 >
                     Last Appointment
                 </button>
             </div>
 
              <div className="mt-3 flex items-center space-x-2 text-sm">
-                <div className={`p-2 rounded-lg flex-grow flex items-center justify-center border transition-all ${selections[service.id] === 'offset' ? 'bg-brand-teal border-brand-teal text-white shadow-md' : 'bg-white border-gray-400 text-gray-800 shadow-sm'}`}>
-                    <label htmlFor={`offset-${service.id}`} className={`font-bold mr-2 ${selections[service.id] === 'offset' ? 'text-white' : 'text-gray-800'}`}>In</label>
+                <div 
+                  className={`p-2 rounded-lg flex-grow flex items-center justify-center border transition-all ${selections[service.id] === 'offset' ? 'shadow-md' : 'bg-white border-gray-400 text-gray-800 shadow-sm'}`}
+                  style={selections[service.id] === 'offset' ? { backgroundColor: branding.secondaryColor, color: ensureAccessibleColor('#FFFFFF', branding.secondaryColor, '#1F2937'), borderColor: branding.secondaryColor } : {}}
+                >
+                    <label htmlFor={`offset-${service.id}`} className={`font-bold mr-2`}>In</label>
                     <input 
                         type="number" 
                         id={`offset-${service.id}`} 
@@ -95,7 +105,7 @@ const SetDatesStep: React.FC<SetDatesStepProps> = ({ selectedServices, planDetai
                         className="w-16 p-2 border border-gray-300 rounded text-black text-center font-bold"
                         placeholder="0"
                     />
-                    <span className={`ml-2 font-bold ${selections[service.id] === 'offset' ? 'text-white' : 'text-gray-800'}`}>weeks</span>
+                    <span className={`ml-2 font-bold`}>weeks</span>
                 </div>
             </div>
 
@@ -105,7 +115,7 @@ const SetDatesStep: React.FC<SetDatesStepProps> = ({ selectedServices, planDetai
                     type="date" 
                     id={`date-${service.id}`} 
                     onChange={e => handleDateChange(service.id, new Date(e.target.value), 'custom')} 
-                    className={`w-full p-3 border rounded-lg font-medium shadow-sm ${selections[service.id] === 'custom' ? 'border-brand-teal ring-1 ring-brand-teal bg-teal-50 text-brand-teal' : 'border-gray-400 text-gray-900 bg-white'}`}
+                    className={`w-full p-3 border rounded-lg font-medium shadow-sm ${selections[service.id] === 'custom' ? 'border-brand-secondary bg-white text-gray-900' : 'border-gray-400 text-gray-900 bg-white'}`}
                 />
             </div>
           </div>
@@ -113,8 +123,8 @@ const SetDatesStep: React.FC<SetDatesStepProps> = ({ selectedServices, planDetai
       </div>
 
       <div className="p-4 mt-auto space-y-3 bg-white border-t border-gray-200">
-        <button onClick={() => onNext(localDetails)} disabled={isNextDisabled} className="w-full bg-brand-pink text-white font-bold py-4 px-4 rounded-full shadow-lg transition-transform transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed">Next Step</button>
-        <button onClick={onBack} className="w-full bg-transparent text-gray-600 font-bold py-2 px-4 hover:text-brand-blue">Back</button>
+        <button onClick={() => onNext(localDetails)} disabled={isNextDisabled} className="w-full text-white font-bold py-4 px-4 rounded-full shadow-lg transition-transform transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed" style={{ backgroundColor: branding.primaryColor, color: ensureAccessibleColor('#FFFFFF', branding.primaryColor, '#1F2937') }}>Next Step</button>
+        <button onClick={onBack} className="w-full bg-transparent text-gray-600 font-bold py-2 px-4 hover:text-gray-900">Back</button>
       </div>
     </div>
   );

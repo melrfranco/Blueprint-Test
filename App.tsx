@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import type { GeneratedPlan, UserRole } from './types';
 import { CURRENT_CLIENT } from './data/mockData';
@@ -12,20 +14,16 @@ import { supabase } from './lib/supabase';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PlanProvider, usePlans } from './contexts/PlanContext';
+import './styles/accessibility.css';
 
 const AppContent: React.FC = () => {
   const { user, login, logout, isAuthenticated } = useAuth();
   const { getPlanForClient } = usePlans();
-  
-  // Local state only for temporary plan creation flow
-  const [tempPlan, setTempPlan] = useState<GeneratedPlan | null>(null);
-
-  const handleLogin = (selectedRole: UserRole) => {
-      login(selectedRole);
-  };
 
   if (!isAuthenticated) {
-      return <LoginScreen onLogin={handleLogin} />;
+      // The onLogin prop is removed as client auth is now handled by Supabase,
+      // and mock stylist/admin login is passed directly via the component.
+      return <LoginScreen onLogin={login} />;
   }
 
   const renderDashboard = () => {

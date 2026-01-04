@@ -3,48 +3,92 @@ import React, { useState } from 'react';
 import type { UserRole } from '../types';
 import { clearSupabaseConfig } from '../lib/supabase';
 import { useSettings } from '../contexts/SettingsContext';
-import { UsersIcon, CheckCircleIcon, DocumentTextIcon, SettingsIcon, ChevronLeftIcon } from './icons';
+import { useAuth } from '../contexts/AuthContext';
+import { UsersIcon, CheckCircleIcon, RefreshIcon, DocumentTextIcon, SettingsIcon, ChevronLeftIcon } from './icons';
+import { ensureAccessibleColor } from '../utils/ensureAccessibleColor';
 
 interface LoginScreenProps {
   onLogin: (role: UserRole, id?: string) => void;
 }
 
 type AppMode = 'landing' | 'professional' | 'client';
+type ClientAuthMode = 'signin' | 'signup';
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const [appMode, setAppMode] = useState<AppMode>('landing');
+  const [clientAuthMode, setClientAuthMode] = useState<ClientAuthMode>('signin');
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
 
-  const { clients, stylists } = useSettings();
+  const { stylists, branding } = useSettings();
+  const { signInClient, signUpClient } = useAuth();
 
-  const handleFormLogin = (e: React.FormEvent) => {
+  const handleClientAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setTimeout(() => {
+    setAuthError(null);
+    setAuthMessage(null);
+
+    try {
+        if (clientAuthMode === 'signup') {
+            const { data, error } = await signUpClient({ email, password });
+            if (error) throw error;
+            if (data.user && !data.session) {
+                setAuthMessage("Success! Please check your email to confirm your account.");
+            }
+        } else {
+            const { error } = await signInClient({ email, password });
+            if (error) throw error;
+            // Successful sign-in will be handled by the onAuthStateChange listener
+        }
+    } catch (err: any) {
+        setAuthError(err.message || 'An unexpected error occurred.');
+    } finally {
         setIsLoading(false);
-        onLogin(appMode === 'professional' ? 'stylist' : 'client'); 
-    }, 800);
+    }
   };
+  
+  const handleDevClientLogin = async () => {
+    setIsLoading(true);
+    setAuthError(null);
+    setAuthMessage(null);
+    try {
+        await onLogin('client');
+    } catch (err: any) {
+        setAuthError(`Dev login failed: ${err.message}. Ensure at least one client exists in the database.`);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+  
+  const safeAccentColor = ensureAccessibleColor(branding.accentColor, '#FFFFFF', '#1E3A8A');
+  const safePrimaryColor = ensureAccessibleColor(branding.primaryColor, '#FFFFFF', '#BE123C');
 
   if (appMode === 'landing') {
       return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6">
             <div className="text-center mb-10">
-                <div className="w-20 h-20 bg-brand-blue rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-xl transform -rotate-3">
-                    <span className="text-white font-bold text-4xl">S</span>
-                </div>
-                <h1 className="text-3xl font-bold text-gray-900 tracking-tighter">Salon Service Planner</h1>
+                {branding.logoUrl ? (
+                    <img src={branding.logoUrl} alt={`${branding.salonName} Logo`} className="w-24 h-24 object-contain mx-auto mb-4" />
+                ) : (
+                    <div className="w-20 h-20 bg-brand-accent rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-xl transform -rotate-3">
+                        <span className="text-white font-bold text-4xl">{branding.salonName?.[0] || 'S'}</span>
+                    </div>
+                )}
+                <h1 className="text-3xl font-bold text-gray-900 tracking-tighter">{branding.salonName}</h1>
                 <p className="text-gray-500 mt-2 font-medium">Select your application portal</p>
             </div>
 
             <div className="w-full max-w-md space-y-4">
                 <button 
                     onClick={() => setAppMode('professional')}
-                    className="w-full bg-white p-6 rounded-[32px] shadow-lg border-4 border-transparent hover:border-brand-blue transition-all group text-left flex items-center"
+                    className="w-full bg-white p-6 rounded-[32px] shadow-lg border-4 border-transparent hover:border-brand-accent transition-all group text-left flex items-center"
                 >
-                    <div className="bg-brand-blue/10 p-4 rounded-2xl mr-5 group-hover:bg-brand-blue group-hover:text-white transition-colors text-brand-blue">
+                    <div className="bg-brand-accent/10 p-4 rounded-2xl mr-5 group-hover:bg-brand-accent group-hover:text-white transition-colors" style={{ color: safeAccentColor }}>
                         <SettingsIcon className="w-8 h-8" />
                     </div>
                     <div>
@@ -55,9 +99,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
 
                 <button 
                     onClick={() => setAppMode('client')}
-                    className="w-full bg-white p-6 rounded-[32px] shadow-lg border-4 border-transparent hover:border-brand-pink transition-all group text-left flex items-center"
+                    className="w-full bg-white p-6 rounded-[32px] shadow-lg border-4 border-transparent hover:border-brand-primary transition-all group text-left flex items-center"
                 >
-                    <div className="bg-brand-pink/10 p-4 rounded-2xl mr-5 group-hover:bg-brand-pink group-hover:text-white transition-colors text-brand-pink">
+                    <div className="bg-brand-primary/10 p-4 rounded-2xl mr-5 group-hover:bg-brand-primary group-hover:text-white transition-colors" style={{ color: safePrimaryColor }}>
                         <UsersIcon className="w-8 h-8" />
                     </div>
                     <div>
@@ -67,65 +111,125 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                 </button>
             </div>
             
-            <p className="mt-12 text-gray-400 text-[10px] font-black uppercase tracking-widest">v1.4.0 • Enterprise Core</p>
+            <p className="mt-12 text-gray-400 text-[10px] font-black uppercase tracking-widest">v1.5.0 • Enterprise Core</p>
         </div>
       );
   }
 
+  const headerStyle = {
+      color: ensureAccessibleColor(
+          appMode === 'professional' ? branding.accentColor : branding.primaryColor,
+          '#F9FAFB', // bg-gray-50
+          appMode === 'professional' ? '#1E3A8A' : '#BE123C'
+      )
+  };
+  
+  const buttonStyle = {
+      backgroundColor: branding.primaryColor,
+      color: ensureAccessibleColor('#FFFFFF', branding.primaryColor, '#1F2937')
+  };
+
   return (
-    <div className={`min-h-screen flex flex-col items-center justify-center p-6 transition-colors duration-500 ${appMode === 'professional' ? 'bg-brand-blue' : 'bg-brand-pink'}`}>
+    <div className={`min-h-screen flex flex-col items-center justify-center p-6 transition-colors duration-500`} style={{ backgroundColor: appMode === 'professional' ? branding.accentColor : branding.primaryColor}}>
       <div className="bg-white rounded-[40px] shadow-2xl w-full max-w-md overflow-hidden relative border-4 border-gray-950">
         
-        <button onClick={() => setAppMode('landing')} className="absolute top-6 left-6 text-gray-400 hover:text-gray-800 transition-colors">
+        <button onClick={() => setAppMode('landing')} className="absolute top-6 left-6 text-gray-400 hover:text-gray-800 transition-colors z-10">
             <ChevronLeftIcon className="w-7 h-7" />
         </button>
 
         <div className="bg-gray-50 p-10 text-center border-b-4 border-gray-100">
-            <h1 className={`text-3xl font-black tracking-tighter ${appMode === 'professional' ? 'text-brand-blue' : 'text-brand-pink'}`}>
-                {appMode === 'professional' ? 'Pro Access' : 'Client Access'}
+            {appMode === 'client' && branding.logoUrl && (
+                 <img src={branding.logoUrl} alt={`${branding.salonName} Logo`} className="w-20 h-20 object-contain mx-auto mb-4" />
+            )}
+            <h1 className="text-3xl font-black tracking-tighter" style={headerStyle}>
+                {appMode === 'professional' ? 'Pro Access' : branding.salonName}
             </h1>
             <p className="text-gray-400 text-xs font-black uppercase tracking-widest mt-2">
-                {appMode === 'professional' ? 'Internal Management' : 'Maintenance Roadmap'}
+                {appMode === 'professional' ? 'Internal Management' : 'Client Portal'}
             </p>
         </div>
 
         <div className="p-10">
-            <form onSubmit={handleFormLogin} className="space-y-4">
-                <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 tracking-widest">Auth Email</label>
-                    <input 
-                        type="email" 
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="user@example.com"
-                        className="w-full p-4 border-4 border-gray-100 rounded-2xl focus:border-brand-teal outline-none transition-all bg-gray-50 font-bold"
-                    />
-                </div>
-                
-                <button 
-                    type="submit" 
-                    disabled={isLoading}
-                    className={`w-full text-white font-black py-5 rounded-2xl shadow-xl transition-all active:scale-95 border-b-8 ${appMode === 'professional' ? 'bg-brand-blue border-blue-900' : 'bg-brand-pink border-pink-900'}`}
-                >
-                    {isLoading ? "VERIFYING..." : "SECURE LOGIN"}
-                </button>
-            </form>
+            {appMode === 'client' ? (
+                <div className="animate-fade-in">
+                    <form onSubmit={handleClientAuth} className="space-y-4">
+                        <h2 className="text-xl font-black text-center mb-4 text-gray-800">{clientAuthMode === 'signin' ? 'Sign In' : 'Create Account'}</h2>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 tracking-widest">Email</label>
+                            <input 
+                                type="email" 
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                required
+                                placeholder="you@example.com"
+                                className="w-full p-4 border-4 border-gray-100 rounded-2xl focus:border-brand-primary outline-none transition-all bg-gray-50 font-bold"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 tracking-widest">Password</label>
+                            <input 
+                                type="password" 
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                placeholder="••••••••"
+                                className="w-full p-4 border-4 border-gray-100 rounded-2xl focus:border-brand-primary outline-none transition-all bg-gray-50 font-bold"
+                            />
+                        </div>
 
-            <div className="mt-10 relative">
-                <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t-2 border-gray-100"></div>
+                        {authError && <p className="text-red-600 text-xs font-bold text-center p-3 bg-red-50 rounded-lg">{authError}</p>}
+                        {authMessage && <p className="text-green-600 text-xs font-bold text-center p-3 bg-green-50 rounded-lg">{authMessage}</p>}
+                        
+                        <button 
+                            type="submit" 
+                            disabled={isLoading}
+                            className="w-full text-white font-black py-5 rounded-2xl shadow-xl transition-all active:scale-95 border-b-8 border-black/20 disabled:bg-gray-400"
+                            style={buttonStyle}
+                        >
+                            {isLoading ? <RefreshIcon className="w-6 h-6 animate-spin mx-auto" /> : (clientAuthMode === 'signin' ? 'SIGN IN' : 'SIGN UP')}
+                        </button>
+                    </form>
+                    <button 
+                        onClick={() => {
+                            setClientAuthMode(prev => prev === 'signin' ? 'signup' : 'signin');
+                            setAuthError(null);
+                            setAuthMessage(null);
+                        }}
+                        className="w-full text-center mt-6 text-xs font-black text-gray-400 uppercase tracking-widest hover:text-brand-primary"
+                    >
+                        {clientAuthMode === 'signin' ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
+                    </button>
+                    <div className="mt-8 pt-6 border-t-2 border-gray-100">
+                        <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest mb-4">
+                            <span className="px-4 bg-white text-gray-400">DEV ONLY</span>
+                        </div>
+                        <button 
+                            type="button"
+                            onClick={handleDevClientLogin}
+                            disabled={isLoading}
+                            className="w-full bg-amber-500 text-white font-black py-4 rounded-2xl shadow-lg border-b-4 border-amber-700 active:scale-95 transition-all disabled:bg-gray-400"
+                        >
+                            {isLoading ? <RefreshIcon className="w-6 h-6 animate-spin mx-auto" /> : "Login as Test Client (Dev Only)"}
+                        </button>
+                        <p className="text-center text-[10px] text-gray-400 mt-2 px-4">
+                            Bypasses Supabase Auth. Logs in as first client in database.
+                        </p>
+                    </div>
                 </div>
-                <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest">
-                    <span className="px-4 bg-white text-gray-400">Available Profiles</span>
-                </div>
-            </div>
-
-            <div className="mt-6 space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                {appMode === 'professional' ? (
-                    <>
+            ) : (
+                <>
+                    <div className="mt-2 relative">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t-2 border-gray-100"></div>
+                        </div>
+                        <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest">
+                            <span className="px-4 bg-white text-gray-400">Dev Auto-Login</span>
+                        </div>
+                    </div>
+                    <div className="mt-6 space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
                         {stylists.slice(0, 3).map(s => (
-                            <button key={s.id} onClick={() => onLogin('stylist', s.id)} className="w-full group flex items-center p-4 rounded-2xl border-4 border-gray-50 hover:border-brand-blue transition-all bg-white text-left">
-                                <div className="w-10 h-10 rounded-xl bg-brand-blue text-white flex items-center justify-center font-black text-sm">{s.name[0]}</div>
+                            <button key={s.id} onClick={() => onLogin('stylist', s.id)} className="w-full group flex items-center p-4 rounded-2xl border-4 border-gray-50 hover:border-brand-accent transition-all bg-white text-left">
+                                <div className="w-10 h-10 rounded-xl bg-brand-accent text-white flex items-center justify-center font-black text-sm">{s.name[0]}</div>
                                 <div className="ml-3">
                                     <p className="text-sm font-black text-gray-950 leading-none">{s.name}</p>
                                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">{s.role}</p>
@@ -139,26 +243,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Full Controller</p>
                             </div>
                         </button>
-                    </>
-                ) : (
-                    <>
-                        {clients.slice(0, 5).map(c => (
-                            <button key={c.id} onClick={() => onLogin('client', c.id)} className="w-full group flex items-center p-4 rounded-2xl border-4 border-gray-50 hover:border-brand-pink transition-all bg-white text-left">
-                                <img src={c.avatarUrl} className="w-10 h-10 rounded-xl border-2 border-gray-100" />
-                                <div className="ml-3">
-                                    <p className="text-sm font-black text-gray-950 leading-none">{c.name}</p>
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">{c.externalId ? 'Square Sync' : 'Demo Client'}</p>
-                                </div>
-                            </button>
-                        ))}
-                    </>
-                )}
-            </div>
+                    </div>
+                </>
+            )}
             
-             <button onClick={clearSupabaseConfig} className="w-full text-center mt-10 text-[9px] font-black text-gray-300 uppercase tracking-widest hover:text-brand-blue transition-colors">
+            <button onClick={clearSupabaseConfig} className="w-full text-center mt-10 text-[9px] font-black text-gray-300 uppercase tracking-widest hover:text-brand-accent transition-colors">
                 Reset System Database Config
             </button>
-
         </div>
       </div>
     </div>

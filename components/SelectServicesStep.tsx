@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import type { Service } from '../types';
 import { useSettings } from '../contexts/SettingsContext';
@@ -81,19 +80,19 @@ const SelectServicesStep: React.FC<SelectServicesStepProps> = ({ availableServic
   return (
     <div className="flex flex-col h-full relative">
       <div className="p-4 flex-shrink-0 bg-white z-10 border-b-4 border-gray-900">
-        <h1 className="text-2xl font-black text-brand-blue text-center tracking-tighter mb-4">Service Selection</h1>
+        <h1 className="text-2xl font-black text-gray-900 text-center tracking-tighter mb-4">Service Selection</h1>
         <div className="relative">
             <input 
                 type="text" 
                 placeholder="Search menu..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full p-4 bg-gray-100 border-4 border-gray-100 rounded-2xl font-black text-gray-950 shadow-inner outline-none focus:bg-white focus:border-brand-blue transition-all"
+                className="w-full p-4 bg-gray-100 border-4 border-gray-100 rounded-2xl font-black text-gray-950 shadow-inner outline-none focus:bg-white focus:border-brand-accent transition-all"
             />
         </div>
         <div className="flex space-x-2 mt-4 overflow-x-auto pb-2 scrollbar-hide">
             {categories.map(cat => (
-                <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-5 py-2 text-[10px] font-black rounded-full whitespace-nowrap transition-all uppercase tracking-widest ${activeCategory === cat || (cat === 'All' && !activeCategory) ? 'bg-brand-blue text-white shadow-lg scale-105' : 'bg-gray-100 text-gray-400 border border-gray-200'}`}>
+                <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-5 py-2 text-xs font-black rounded-full whitespace-nowrap transition-all uppercase tracking-widest ${activeCategory === cat || (cat === 'All' && !activeCategory) ? 'bg-brand-accent text-white shadow-lg scale-105' : 'bg-gray-100 text-gray-400 border border-gray-200'}`}>
                     {cat}
                 </button>
             ))}
@@ -102,14 +101,14 @@ const SelectServicesStep: React.FC<SelectServicesStepProps> = ({ availableServic
       
       <div className="flex-grow overflow-y-auto px-4 pb-48 pt-4">
         {linkingSuggestion && (
-            <div className="mb-6 bg-brand-teal text-white p-5 rounded-[32px] border-4 border-teal-700 shadow-xl animate-bounce-in flex items-center justify-between">
+            <div className="mb-6 bg-brand-secondary text-white p-5 rounded-[32px] border-b-4 border-black/20 shadow-xl animate-bounce-in flex items-center justify-between">
                 <div className="pr-4 text-white">
-                    <p className="text-[10px] font-black uppercase tracking-widest mb-1 opacity-80">Finish Suggestion</p>
+                    <p className="text-xs font-black uppercase tracking-widest mb-1 opacity-80">Finish Suggestion</p>
                     <p className="text-sm font-black leading-tight">Add a <span className="underline">{linkingSuggestion.name}</span> to this plan?</p>
                 </div>
                 <button 
                     onClick={() => toggleService(linkingSuggestion.id)}
-                    className="bg-white text-brand-teal p-3 rounded-2xl shadow-lg active:scale-90 transition-all"
+                    className="bg-white text-brand-secondary p-3 rounded-2xl shadow-lg active:scale-90 transition-all"
                 >
                     <PlusIcon className="w-6 h-6" />
                 </button>
@@ -118,7 +117,7 @@ const SelectServicesStep: React.FC<SelectServicesStepProps> = ({ availableServic
 
         {Object.entries(servicesByCategory).map(([category, services]) => (
             <div key={category} className="mb-8">
-                <h2 className="font-black text-gray-400 text-[10px] uppercase tracking-widest mb-4 flex items-center">
+                <h2 className="font-black text-gray-400 text-xs uppercase tracking-widest mb-4 flex items-center">
                     <span className="flex-grow h-px bg-gray-100 mr-3"></span>
                     {category}
                     <span className="flex-grow h-px bg-gray-100 ml-3"></span>
@@ -130,11 +129,11 @@ const SelectServicesStep: React.FC<SelectServicesStepProps> = ({ availableServic
                             <button 
                                 key={service.id} 
                                 onClick={() => toggleService(service.id)} 
-                                className={`p-5 rounded-[32px] shadow-sm transition-all duration-300 text-left flex flex-col justify-between h-36 border-4 relative overflow-hidden ${ isSelected ? 'bg-brand-blue text-white border-blue-900 scale-95 shadow-inner' : 'bg-white text-gray-950 border-gray-50'}`}
+                                className={`p-5 rounded-[32px] shadow-sm transition-all duration-300 text-left flex flex-col justify-between h-36 border-4 relative overflow-hidden ${ isSelected ? 'bg-brand-accent text-white border-black/20 scale-95 shadow-inner' : 'bg-white text-gray-950 border-gray-50'}`}
                             >
-                                {isSelected && <div className="absolute top-2 right-2"><CheckCircleIcon className="w-6 h-6 text-brand-teal" /></div>}
+                                {isSelected && <div className="absolute top-2 right-2"><CheckCircleIcon className="w-6 h-6 text-brand-secondary" /></div>}
                                 <span className="font-black text-base leading-tight tracking-tight pr-4">{service.name}</span>
-                                <div className="text-[10px] font-black opacity-60 uppercase tracking-widest">
+                                <div className="text-xs font-black opacity-60 uppercase tracking-widest">
                                     <span className="block">${service.cost}</span>
                                     <span className="block mt-0.5">{formatDuration(service.duration)}</span>
                                 </div>
@@ -150,7 +149,7 @@ const SelectServicesStep: React.FC<SelectServicesStepProps> = ({ availableServic
         <button 
             onClick={handleNext} 
             disabled={selectedIds.size === 0} 
-            className="w-full bg-brand-pink text-white font-black py-5 px-4 rounded-[32px] shadow-2xl active:scale-95 transition-all disabled:bg-gray-400 disabled:shadow-none mb-4 text-xl border-b-8 border-pink-900"
+            className="w-full bg-brand-primary text-white font-black py-5 px-4 rounded-[32px] shadow-2xl active:scale-95 transition-all disabled:bg-gray-400 disabled:shadow-none mb-4 text-xl border-b-8 border-black/20"
         >
           CONFIRM ({selectedIds.size})
         </button>

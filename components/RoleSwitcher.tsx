@@ -1,4 +1,3 @@
-
 import React from 'react';
 import type { UserRole } from '../types';
 
@@ -20,7 +19,7 @@ const RoleSwitcher: React.FC<RoleSwitcherProps> = ({ currentRole, setRole }) => 
             onClick={() => setRole(role)}
             className={`px-3 py-1 text-xs font-semibold rounded-full capitalize transition-colors ${
               currentRole === role
-                ? 'bg-brand-pink text-white'
+                ? 'bg-brand-primary text-white'
                 : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
             }`}
           >
