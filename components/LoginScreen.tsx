@@ -253,7 +253,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                 </div>
             ) : (
                 <div className="animate-fade-in">
-                    <button onClick={handleSquareLogin} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center space-x-3 border-b-4 border-blue-800 active:scale-95 transition-all text-lg">
+                    <button type="button" onClick={handleSquareLogin} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center space-x-3 border-b-4 border-blue-800 active:scale-95 transition-all text-lg">
                         <span>Log in with Square</span>
                     </button>
                     {authError && <p className="text-red-600 text-xs font-bold text-center p-3 mt-4 bg-red-50 rounded-lg">{authError}</p>}

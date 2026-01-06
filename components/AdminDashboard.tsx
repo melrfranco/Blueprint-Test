@@ -537,7 +537,7 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
                                     <p className="text-xs font-bold text-green-700">Merchant ID: {integration.squareMerchantId}</p>
                                 </div>
                             ) : (
-                                <button onClick={handleConnectToSquare} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center space-x-3 border-b-4 border-blue-800 active:scale-95 transition-all">
+                                <button type="button" onClick={handleConnectToSquare} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center space-x-3 border-b-4 border-blue-800 active:scale-95 transition-all">
                                     <span>Connect to Square</span>
                                 </button>
                             )}
