@@ -68,14 +68,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const safeAccentColor = ensureAccessibleColor(branding.accentColor, '#FFFFFF', '#1E3A8A');
   const safePrimaryColor = ensureAccessibleColor(branding.primaryColor, '#FFFFFF', '#BE123C');
   
-  const squareAppId = process.env.VITE_SQUARE_APPLICATION_ID;
-  const isSquareConfigured = !!squareAppId;
-
   const handleSquareLogin = () => {
-    const clientId = process.env.VITE_SQUARE_APPLICATION_ID;
+    const clientId = import.meta.env.VITE_SQUARE_APPLICATION_ID;
 
     if (!clientId) {
-      setAuthError("Configuration Error: Square Application ID is missing.");
+      console.error('Square Application ID missing at runtime');
+      setAuthError('Square login is unavailable. The application ID has not been configured.');
       return;
     }
 
@@ -242,16 +240,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                 </div>
             ) : (
                 <div className="animate-fade-in">
-                    {isSquareConfigured ? (
-                        <button onClick={handleSquareLogin} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center space-x-3 border-b-4 border-blue-800 active:scale-95 transition-all text-lg">
-                            <span>Log in with Square</span>
-                        </button>
-                    ) : (
-                        <div className="p-4 bg-red-50 border-2 border-red-200 rounded-2xl text-center">
-                            <p className="text-sm font-bold text-red-800">Configuration Error</p>
-                            <p className="text-xs text-red-700 mt-1">Square login is unavailable. The application ID has not been configured by the developer.</p>
-                        </div>
-                    )}
+                    <button onClick={handleSquareLogin} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center space-x-3 border-b-4 border-blue-800 active:scale-95 transition-all text-lg">
+                        <span>Log in with Square</span>
+                    </button>
+                    {authError && <p className="text-red-600 text-xs font-bold text-center p-3 mt-4 bg-red-50 rounded-lg">{authError}</p>}
                     <p className="text-center text-xs text-gray-500 mt-3 px-4">Admin accounts are created and managed via Square.</p>
                     
                     <details className="mt-8 text-gray-500">

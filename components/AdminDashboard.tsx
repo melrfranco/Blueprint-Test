@@ -117,6 +117,18 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
       setTimeout(() => setSyncMessage(null), 2000);
   }
 
+  const handleConnectToSquare = () => {
+    const clientId = import.meta.env.VITE_SQUARE_APPLICATION_ID;
+    if (!clientId) {
+      setSyncError("Configuration Error: Square Application ID is missing.");
+      return;
+    }
+    const redirectUri = `${window.location.origin}/square/callback`;
+    const scopes = "CUSTOMERS_READ ITEMS_READ MERCHANT_PROFILE_READ APPOINTMENTS_READ APPOINTMENTS_WRITE TEAM_MEMBERS_READ";
+    const oauthUrl = `https://connect.squareup.com/oauth2/authorize?client_id=${clientId}&scope=${encodeURIComponent(scopes)}&session=false&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    window.location.href = oauthUrl;
+  };
+
   /**
    * --- SYSTEM INVARIANT DOCUMENTATION (Admin Sync) ---
    *
@@ -502,9 +514,9 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
                                     <p className="text-xs font-bold text-green-700">Merchant ID: {integration.squareMerchantId}</p>
                                 </div>
                             ) : (
-                                <a href={`https://connect.squareup.com/oauth2/authorize?client_id=${process.env.VITE_SQUARE_APPLICATION_ID}&scope=CUSTOMERS_READ%20ITEMS_READ%20MERCHANT_PROFILE_READ%20APPOINTMENTS_READ%20APPOINTMENTS_WRITE%20TEAM_MEMBERS_READ&session=false&redirect_uri=${window.location.origin}/square/callback`} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center space-x-3 border-b-4 border-blue-800 active:scale-95 transition-all">
+                                <button onClick={handleConnectToSquare} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center space-x-3 border-b-4 border-blue-800 active:scale-95 transition-all">
                                     <span>Connect to Square</span>
-                                </a>
+                                </button>
                             )}
 
                             <div className="relative flex items-center my-6">
