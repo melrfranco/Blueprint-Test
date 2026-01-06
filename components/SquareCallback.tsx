@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useState } from 'react';
 import { SquareIntegrationService } from '../services/squareIntegration';
 import { useSettings } from '../contexts/SettingsContext';
@@ -46,6 +47,8 @@ const SquareCallback: React.FC = () => {
                 const { business_name } = await SquareIntegrationService.fetchMerchantDetails(accessToken, integration.environment, merchantId);
                 
                 const email = `admin+${merchantId}@blueprint.app`;
+                // FIX: Suppress TypeScript error for import.meta.env which is a Vite-specific feature.
+                // @ts-ignore
                 const password = `pass+${merchantId}+${import.meta.env.VITE_SQUARE_APPLICATION_ID}`;
 
                 const { error: signInError } = await signInClient({ email, password });

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import BottomNav from './BottomNav';
@@ -118,14 +119,24 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
   }
 
   const handleConnectToSquare = () => {
+    // FIX: Suppress TypeScript error for import.meta.env which is a Vite-specific feature.
+    // @ts-ignore
     const clientId = import.meta.env.VITE_SQUARE_APPLICATION_ID;
     if (!clientId) {
-      setSyncError("Configuration Error: Square Application ID is missing.");
+      setSyncError(
+        'Square login is unavailable. The application ID has not been configured by the developer.'
+      );
       return;
     }
-    const redirectUri = `${window.location.origin}/square/callback`;
-    const scopes = "CUSTOMERS_READ ITEMS_READ MERCHANT_PROFILE_READ APPOINTMENTS_READ APPOINTMENTS_WRITE TEAM_MEMBERS_READ";
-    const oauthUrl = `https://connect.squareup.com/oauth2/authorize?client_id=${clientId}&scope=${encodeURIComponent(scopes)}&session=false&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    const redirectUri =
+      window.location.origin + '/square/callback';
+    const scopes =
+      'CUSTOMERS_READ BOOKINGS_READ BOOKINGS_WRITE CATALOG_READ TEAM_MEMBERS_READ MERCHANT_PROFILE_READ';
+    const oauthUrl =
+      `https://connect.squareup.com/oauth2/authorize` +
+      `?client_id=${clientId}` +
+      `&scope=${encodeURIComponent(scopes)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}`;
     window.location.href = oauthUrl;
   };
 

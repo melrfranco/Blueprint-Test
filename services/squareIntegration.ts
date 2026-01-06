@@ -1,4 +1,5 @@
 
+
 import { Service, Stylist, Client, PlanAppointment } from '../types';
 
 // Square API Types (Simplified)
@@ -121,7 +122,11 @@ export const SquareIntegrationService = {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        // FIX: Suppress TypeScript error for import.meta.env which is a Vite-specific feature.
+        // @ts-ignore
         client_id: import.meta.env.VITE_SQUARE_APPLICATION_ID,
+        // FIX: Suppress TypeScript error for import.meta.env which is a Vite-specific feature.
+        // @ts-ignore
         client_secret: import.meta.env.VITE_SQUARE_CLIENT_SECRET,
         code: code,
         grant_type: 'authorization_code',
