@@ -68,10 +68,29 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const safeAccentColor = ensureAccessibleColor(branding.accentColor, '#FFFFFF', '#1E3A8A');
   const safePrimaryColor = ensureAccessibleColor(branding.primaryColor, '#FFFFFF', '#BE123C');
   
-  // FIX: Replaced import.meta.env with process.env to align with project conventions and fix TypeScript error.
   const squareAppId = process.env.VITE_SQUARE_APPLICATION_ID;
   const isSquareConfigured = !!squareAppId;
-  const squareAuthUrl = `https://connect.squareup.com/oauth2/authorize?client_id=${squareAppId}&scope=CUSTOMERS_READ%20ITEMS_READ%20MERCHANT_PROFILE_READ%20APPOINTMENTS_READ%20APPOINTMENTS_WRITE%20TEAM_MEMBERS_READ&session=false&redirect_uri=${window.location.origin}/square/callback`;
+
+  const handleSquareLogin = () => {
+    const clientId = process.env.VITE_SQUARE_APPLICATION_ID;
+
+    if (!clientId) {
+      setAuthError("Configuration Error: Square Application ID is missing.");
+      return;
+    }
+
+    const redirectUri = `${window.location.origin}/square/callback`;
+    const scopes = "CUSTOMERS_READ ITEMS_READ MERCHANT_PROFILE_READ APPOINTMENTS_READ APPOINTMENTS_WRITE TEAM_MEMBERS_READ";
+    
+    const oauthUrl =
+      `https://connect.squareup.com/oauth2/authorize` +
+      `?client_id=${clientId}` +
+      `&scope=${encodeURIComponent(scopes)}` +
+      `&session=false` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}`;
+
+    window.location.href = oauthUrl;
+  };
 
   if (appMode === 'landing') {
       return (
@@ -224,9 +243,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
             ) : (
                 <div className="animate-fade-in">
                     {isSquareConfigured ? (
-                        <a href={squareAuthUrl} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center space-x-3 border-b-4 border-blue-800 active:scale-95 transition-all text-lg">
+                        <button onClick={handleSquareLogin} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center space-x-3 border-b-4 border-blue-800 active:scale-95 transition-all text-lg">
                             <span>Log in with Square</span>
-                        </a>
+                        </button>
                     ) : (
                         <div className="p-4 bg-red-50 border-2 border-red-200 rounded-2xl text-center">
                             <p className="text-sm font-bold text-red-800">Configuration Error</p>
