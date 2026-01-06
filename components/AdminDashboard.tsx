@@ -128,7 +128,8 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
       return;
     }
   
-    const redirectUri = window.location.origin + '/square/callback';
+    // @ts-ignore
+    const redirectUri = import.meta.env.VITE_SQUARE_REDIRECT_URI;
   
     const scopes = [
       'CUSTOMERS_READ',

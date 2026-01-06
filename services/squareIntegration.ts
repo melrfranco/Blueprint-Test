@@ -130,7 +130,8 @@ export const SquareIntegrationService = {
         client_secret: import.meta.env.VITE_SQUARE_CLIENT_SECRET,
         code: code,
         grant_type: 'authorization_code',
-        redirect_uri: `${window.location.origin}/square/callback`
+        // @ts-ignore
+        redirect_uri: import.meta.env.VITE_SQUARE_REDIRECT_URI
       }),
     });
 
