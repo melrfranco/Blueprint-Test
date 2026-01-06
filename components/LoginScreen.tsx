@@ -84,8 +84,6 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   
     const scopes = [
       'CUSTOMERS_READ',
-      'APPOINTMENTS_READ',
-      'APPOINTMENTS_WRITE',
       'ITEMS_READ',
       'TEAM_MEMBERS_READ',
       'MERCHANT_PROFILE_READ',
