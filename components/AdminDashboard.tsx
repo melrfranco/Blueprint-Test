@@ -144,12 +144,15 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
       ? 'https://connect.squareupsandbox.com/oauth2/authorize'
       : 'https://connect.squareup.com/oauth2/authorize';
   
+    const state = crypto.randomUUID();
+
     const oauthUrl =
       `${authorizeBase}` +
       `?client_id=${encodeURIComponent(clientId)}` +
       `&response_type=code` +
       `&scope=${encodeURIComponent(scopes)}` +
-      `&redirect_uri=${encodeURIComponent(redirectUri)}`;
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&state=${encodeURIComponent(state)}`;
   
     window.location.href = oauthUrl;
   };
