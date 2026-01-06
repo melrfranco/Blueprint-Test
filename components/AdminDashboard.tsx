@@ -46,6 +46,7 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
       integration, updateIntegration,
       saveAll,
       pinnedReports, updatePinnedReports,
+      resolveClientByExternalId,
   } = useSettings();
   
   const { getStats, plans } = usePlans();
@@ -173,60 +174,24 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
           // must also be skipped gracefully.
           const squareTeamIdToInternalId = new Map<string, string>();
           
-          // --- CLIENT SYNC ---
-          const { data: existingClients, error: fetchClientsError } = await supabase
-              .from('clients')
-              .select('id, external_id');
-          
-          if (fetchClientsError) {
-              if (fetchClientsError.code === '42P01') throw new Error("CRITICAL: Prerequisite table 'clients' missing. Please initialize your Supabase schema.");
-              throw fetchClientsError;
-          }
-          
-          const squareCustomerIdToInternalId = new Map<string, string>();
-          (existingClients || []).forEach(c => {
-              if (c.external_id) squareCustomerIdToInternalId.set(c.external_id, c.id);
-          });
-
+          // --- CLIENT SYNC (REPLACED LOGIC) ---
           if (newSquareClients.length > 0) {
-              const clientPayload = newSquareClients.map(c => {
-                // INVARIANT A2 (LOCKED): The Square Customer ID is ONLY assigned to `external_id`.
-                // The `id` (PK, UUID) is handled by Supabase.
-                if (c.id.length < 5 || c.id.includes('-')) {
-                    // Non-behavior-changing guard check for future developers.
-                    console.warn(`[INVARIANT GUARD] A potential UUID ('${c.id}') was detected from Square. This MUST NOT be assigned to a UUID column. Storing in 'external_id' as required.`);
-                }
-                return {
-                    external_id: c.id,
-                    name: c.name,
-                    email: c.email,
-                    phone: c.phone,
-                    avatar_url: c.avatarUrl
-                };
-              });
-
-              const { data: persistedClients, error: ce } = await supabase
-                  .from('clients')
-                  .upsert(clientPayload, { onConflict: 'external_id' })
-                  .select();
-
-              if (ce) throw ce;
-
-              if (persistedClients) {
-                  persistedClients.forEach(c => {
-                    if (c.external_id) squareCustomerIdToInternalId.set(c.external_id, c.id);
+              setSyncMessage(`Syncing ${newSquareClients.length} clients...`);
+              const resolvedClients: Client[] = [];
+              for (const sqClient of newSquareClients) {
+                  if (!sqClient.id) {
+                      console.warn("Skipping Square client with no ID:", sqClient);
+                      continue;
+                  }
+                  const client = await resolveClientByExternalId(sqClient.id, {
+                      name: sqClient.name!,
+                      email: sqClient.email,
+                      phone: sqClient.phone,
+                      avatarUrl: sqClient.avatarUrl
                   });
-                  const formattedClients = persistedClients.map(c => ({
-                      id: c.id,
-                      externalId: c.external_id,
-                      name: c.name,
-                      email: c.email,
-                      phone: c.phone,
-                      avatarUrl: c.avatar_url,
-                      historicalData: []
-                  }));
-                  updateClients(formattedClients);
+                  resolvedClients.push(client);
               }
+              updateClients(resolvedClients);
           }
 
           // --- SERVICE SYNC ---

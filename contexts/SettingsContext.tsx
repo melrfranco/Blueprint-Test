@@ -36,6 +36,7 @@ interface SettingsContextType {
     updatePushAlertsEnabled: (enabled: boolean) => void;
     updatePinnedReports: (userId: string | number, reportIds: string[]) => void;
     createClient: (clientData: { name: string; email: string }) => Promise<Client>;
+    resolveClientByExternalId: (externalId: string, clientDetails: { name: string; email?: string; phone?: string; avatarUrl?: string; }) => Promise<Client>;
     saveAll: () => void;
 }
 
@@ -252,6 +253,68 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         
         return newClient;
     };
+    
+    const resolveClientByExternalId = async (externalId: string, clientDetails: { name: string; email?: string; phone?: string; avatarUrl?: string; }): Promise<Client> => {
+        if (!supabase) throw new Error("Supabase is not initialized.");
+        if (!externalId) throw new Error("External ID is required to resolve a client.");
+
+        const { data: existingClient, error: findError } = await supabase
+            .from('clients')
+            .select('*')
+            .eq('external_id', externalId)
+            .maybeSingle();
+
+        if (findError) throw findError;
+
+        if (existingClient) {
+            const resolvedClient: Client = {
+                id: existingClient.id,
+                externalId: existingClient.external_id,
+                name: existingClient.name,
+                email: existingClient.email,
+                phone: existingClient.phone,
+                avatarUrl: existingClient.avatar_url,
+                historicalData: []
+            };
+            setClients(prev => {
+                const index = prev.findIndex(c => c.id === resolvedClient.id || (c.externalId && c.externalId === externalId));
+                if (index > -1) {
+                    const updated = [...prev];
+                    updated[index] = resolvedClient;
+                    return updated;
+                }
+                return [...prev, resolvedClient];
+            });
+            return resolvedClient;
+        }
+
+        const { data: newDbClient, error: createError } = await supabase
+            .from('clients')
+            .insert({
+                external_id: externalId,
+                name: clientDetails.name,
+                email: clientDetails.email,
+                phone: clientDetails.phone,
+                avatar_url: clientDetails.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(clientDetails.name)}&background=random`
+            })
+            .select()
+            .single();
+        
+        if (createError) throw createError;
+
+        const newClient: Client = {
+            id: newDbClient.id,
+            externalId: newDbClient.external_id,
+            name: newDbClient.name,
+            email: newDbClient.email,
+            phone: newDbClient.phone,
+            avatarUrl: newDbClient.avatar_url,
+            historicalData: []
+        };
+        
+        setClients(prev => [...prev, newClient]);
+        return newClient;
+    };
 
     const saveAll = () => {
         try {
@@ -287,6 +350,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             updatePushAlertsEnabled,
             updatePinnedReports,
             createClient,
+            resolveClientByExternalId,
             saveAll
         }}>
             {children}

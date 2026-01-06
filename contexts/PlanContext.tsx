@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { GeneratedPlan, PlanAppointment } from '../types';
 import { supabase } from '../lib/supabase';
@@ -30,6 +26,8 @@ interface PlanContextType {
 }
 
 const PlanContext = createContext<PlanContextType | undefined>(undefined);
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [plans, setPlans] = useState<GeneratedPlan[]>([]);
@@ -115,6 +113,13 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const savePlan = async (newPlan: GeneratedPlan): Promise<GeneratedPlan> => {
         if (!supabase) {
             throw new Error("Supabase client not available.");
+        }
+
+        // --- UUID ASSERTION GUARD (MANDATORY) ---
+        if (!newPlan.client.id || !UUID_REGEX.test(newPlan.client.id)) {
+            const errorMessage = `CRITICAL INVARIANT VIOLATION: Attempted to save a plan with an invalid or missing client_id ('${newPlan.client.id}'). This must be a valid UUID. Operation aborted.`;
+            console.error(errorMessage);
+            throw new Error(errorMessage);
         }
 
         const isNewPlan = newPlan.id.startsWith('plan_');
