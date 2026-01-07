@@ -84,9 +84,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     const scopes = [
       'CUSTOMERS_READ',
       'ITEMS_READ',
-      'TEAM_MEMBERS_READ',
+      'EMPLOYEES_READ',
       'MERCHANT_PROFILE_READ',
-    ].join(' ');
+    ].map(s => s.trim()).join(' ');
 
     const authorizeBase = 'https://connect.squareup.com/oauth2/authorize';
     const state = crypto.randomUUID();
