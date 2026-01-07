@@ -12,7 +12,7 @@ interface SelectClientStepProps {
   onBack: () => void;
 }
 
-const SelectClientStep: React.FC<SelectClientStepProps> = ({ clients, onSelect, onBack }) => {
+const SelectClientStep: React.FC<SelectClientStepProps> = ({ clients: propClients, onSelect, onBack }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -24,6 +24,24 @@ const SelectClientStep: React.FC<SelectClientStepProps> = ({ clients, onSelect, 
   const { createClient, branding } = useSettings();
 
   const isAdmin = user?.role === 'admin';
+
+  const clients = useMemo(() => {
+    const squareRaw = localStorage.getItem('square_customers');
+    const squareClientsData = JSON.parse(squareRaw || '[]');
+    
+    if (squareClientsData && squareClientsData.length > 0) {
+      return squareClientsData.map((c: any) => ({
+        id: c.id,
+        externalId: c.id,
+        name: `${c.given_name ?? ''} ${c.family_name ?? ''}`.trim() || c.email_address || 'Unnamed Client',
+        email: c.email_address ?? '',
+        avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(c.given_name || 'U')}&background=random`,
+        historicalData: [],
+        source: 'square',
+      })) as Client[];
+    }
+    return propClients;
+  }, [propClients]);
 
   const filteredClients = useMemo(() => {
     return clients.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import type { GeneratedPlan, UserRole } from './types';
 import { CURRENT_CLIENT } from './data/mockData';
 import RoleSwitcher from './components/RoleSwitcher';
@@ -20,6 +20,31 @@ const AppContent: React.FC = () => {
   const { getPlanForClient } = usePlans();
 
   const squareAuthed = sessionStorage.getItem('square_oauth_complete') === 'true';
+
+  useEffect(() => {
+    if (squareAuthed) {
+      async function syncSquareCustomers() {
+        try {
+          const res = await fetch('/api/square/customers', {
+            credentials: 'include',
+          });
+
+          if (!res.ok) return;
+
+          const customers = await res.json();
+
+          // Persist for app usage
+          localStorage.setItem(
+            'square_customers',
+            JSON.stringify(customers)
+          );
+        } catch (e) {
+          console.error('Failed to sync Square customers:', e);
+        }
+      }
+      syncSquareCustomers();
+    }
+  }, [squareAuthed]);
 
   if (!isAuthenticated && !squareAuthed) {
       // The onLogin prop is removed as client auth is now handled by Supabase,
