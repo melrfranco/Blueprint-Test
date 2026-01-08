@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useSettings } from '../contexts/SettingsContext';
 import { ensureAccessibleColor } from '../utils/ensureAccessibleColor';
@@ -9,10 +9,34 @@ const ResetPassword = () => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isVerifying, setIsVerifying] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     
     const { branding } = useSettings();
+
+    // 1) On mount, IMPLEMENT EXPLICIT RECOVERY SESSION HANDLING
+    useEffect(() => {
+        const checkSession = async () => {
+            if (!supabase) return;
+            try {
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                
+                // 2) IF session exists AND session.user exists: Render password reset form
+                if (sessionError || !session || !session.user) {
+                    console.warn("No active recovery session detected. Redirecting to home.");
+                    window.location.replace('/');
+                    return;
+                }
+            } catch (e) {
+                console.error("Error verifying recovery session:", e);
+                window.location.replace('/');
+            } finally {
+                setIsVerifying(false);
+            }
+        };
+        checkSession();
+    }, []);
     
     const handleReset = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -30,10 +54,18 @@ const ResetPassword = () => {
 
         try {
             if (!supabase) throw new Error("Supabase not initialized");
+            
+            // 3) On submit, call: supabase.auth.updateUser({ password })
             const { error: resetError } = await supabase.auth.updateUser({ password });
             if (resetError) throw resetError;
             
+            // 4) AFTER successful update: IMMEDIATELY call signOut()
+            // This ensures we do not leave recovery session active.
+            await supabase.auth.signOut();
+            
             setSuccess(true);
+            
+            // 5) THEN redirect user to: / (login)
             setTimeout(() => {
                 window.location.replace('/');
             }, 2000);
@@ -49,6 +81,14 @@ const ResetPassword = () => {
         backgroundColor: branding.primaryColor,
         color: ensureAccessibleColor('#FFFFFF', branding.primaryColor, '#FFFFFF')
     };
+
+    if (isVerifying) {
+        return (
+            <div className="min-h-screen bg-brand-bg flex items-center justify-center">
+                <RefreshIcon className="w-12 h-12 text-brand-accent animate-spin" />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-brand-primary" style={{ backgroundColor: branding.primaryColor }}>

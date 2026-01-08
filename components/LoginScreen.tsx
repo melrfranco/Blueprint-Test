@@ -199,7 +199,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const getTitle = () => {
     if (clientAuthMode === 'signin') return 'Sign In';
     if (clientAuthMode === 'signup') return 'Create Account';
-    return 'Reset Password';
+    return 'Forgot Password';
   };
 
   const getButtonLabel = () => {

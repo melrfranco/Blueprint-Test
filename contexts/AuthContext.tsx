@@ -176,7 +176,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser(null);
     };
 
-    if (loading) {
+    // AUTH LOADING GUARD: Ensure reset-password page can pass through during recovery session
+    const isResetPage = typeof window !== 'undefined' && window.location.pathname === '/reset-password';
+    if (loading && !isResetPage) {
         return (
             <div className="flex items-center justify-center h-screen">
                 <div className="w-16 h-16 border-4 border-brand-accent border-t-transparent rounded-full animate-spin"></div>
