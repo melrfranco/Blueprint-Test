@@ -11,7 +11,6 @@ interface AuthContextType {
     signUpClient: (credentials: {email: string, password: string, options?: { data: any } }) => Promise<any>;
     logout: () => Promise<void>;
     isAuthenticated: boolean;
-    isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -216,8 +215,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser(null);
     };
 
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <div className="w-16 h-16 border-4 border-brand-accent border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        );
+    }
+
     return (
-        <AuthContext.Provider value={{ user, login, signInClient, signUpClient, logout, isAuthenticated: !!user, isLoading: loading }}>
+        <AuthContext.Provider value={{ user, login, signInClient, signUpClient, logout, isAuthenticated: !!user }}>
             {children}
         </AuthContext.Provider>
     );

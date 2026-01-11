@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import type { GeneratedPlan, UserRole } from './types';
 import { CURRENT_CLIENT } from './data/mockData';
 import RoleSwitcher from './components/RoleSwitcher';
@@ -17,21 +17,11 @@ import SquareCallback from './components/SquareCallback';
 import { SquareIntegrationService } from './services/squareIntegration';
 
 const AppContent: React.FC = () => {
-  const { user, login, logout, isAuthenticated, isLoading } = useAuth();
+  const { user, login, logout, isAuthenticated } = useAuth();
   const { getPlanForClient } = usePlans();
   const { integration, updateIntegration } = useSettings();
-  
-  // 🟢 NEW: Track explicitly selected role to support post-login selection screen
-  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
 
   const squareAuthed = sessionStorage.getItem('square_oauth_complete') === 'true';
-
-  // Clear role selection if user becomes unauthenticated
-  useEffect(() => {
-    if (!isAuthenticated && !squareAuthed) {
-      setSelectedRole(null);
-    }
-  }, [isAuthenticated, squareAuthed]);
 
   useEffect(() => {
     if (squareAuthed) {
@@ -40,8 +30,11 @@ const AppContent: React.FC = () => {
           const code = sessionStorage.getItem('square_oauth_code');
           if (!code) return;
 
+          // 1. Exchange OAuth code for access token
+          // We use the environment from settings.
           const tokens = await SquareIntegrationService.exchangeCodeForToken(code, integration.environment || 'production');
           
+          // 2. Update persistent integration settings with the new tokens
           updateIntegration({
             ...integration,
             squareAccessToken: tokens.accessToken,
@@ -49,8 +42,10 @@ const AppContent: React.FC = () => {
             squareMerchantId: tokens.merchantId
           });
 
+          // 3. Fetch live customers from Square API
           const squareCustomers = await SquareIntegrationService.fetchCustomers(tokens.accessToken, integration.environment || 'production');
 
+          // 4. Persist Square customers to the application's database
           if (supabase && squareCustomers.length > 0) {
               const upsertData = squareCustomers.map(c => ({
                   external_id: c.id,
@@ -67,10 +62,18 @@ const AppContent: React.FC = () => {
               
               if (error) {
                   console.error('Failed to persist Square customers to database:', error);
+              } else {
+                  console.log(`Successfully synced ${squareCustomers.length} customers from Square to database.`);
               }
           }
 
-          localStorage.setItem('square_customers', JSON.stringify(squareCustomers));
+          // Store in localStorage for immediate frontend selector availability
+          localStorage.setItem(
+            'square_customers',
+            JSON.stringify(squareCustomers)
+          );
+          
+          // Clear the code so we don't repeat the exchange/sync process on every mount
           sessionStorage.removeItem('square_oauth_code');
           
         } catch (e) {
@@ -81,38 +84,27 @@ const AppContent: React.FC = () => {
     }
   }, [squareAuthed, integration, updateIntegration]);
 
-  // 🔴 AUTHORIZED FIX: Safety Fallback for Loading State
-  if (isLoading) {
-    return (
-      <div style={{ padding: 24, minHeight: '100vh', backgroundColor: '#F8F9FA' }}>
-        <h1 style={{ fontWeight: 900, fontSize: '2rem', marginBottom: 8 }}>Loading application…</h1>
-        <p>If this screen persists, authentication or session resolution is stuck.</p>
-        <div className="mt-8 w-12 h-12 border-4 border-gray-900 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
-
-  // 🔴 AUTHORIZED FIX: Restore Role Selection after Login
-  // If not authenticated via Supabase AND not authenticated via Square, show login
   if (!isAuthenticated && !squareAuthed) {
-    return <LoginScreen onLogin={login} onSelectRole={setSelectedRole} />;
-  }
-
-  // If authenticated but NO role is selected, show LoginScreen (Landing Mode)
-  if (!selectedRole) {
-    return <LoginScreen onLogin={login} onSelectRole={setSelectedRole} />;
+      // The onLogin prop is removed as client auth is now handled by Supabase,
+      // and mock stylist/admin login is passed directly via the component.
+      return <LoginScreen onLogin={login} />;
   }
 
   const renderDashboard = () => {
-    // 🟢 AUTHENTICATION INVARIANT: Use selectedRole as source of truth for dashboard routing
-    const effectiveRole = selectedRole;
+    // Square-auth users are treated as ADMIN role if no other user is logged in
+    const effectiveRole = user?.role || (squareAuthed ? 'admin' : null);
 
     if (!effectiveRole) return null;
 
     switch (effectiveRole) {
       case 'stylist':
-        return <StylistDashboard onLogout={logout} />;
+        // Stylist dashboard needs to know who the client is. 
+        // For MVP, StylistDashboard manages its own client selection state.
+        return <StylistDashboard 
+                  onLogout={logout} 
+               />;
       case 'client':
+        // Load the REAL plan for this client
         const myPlan = user?.clientData ? getPlanForClient(user.clientData.id) : null;
         return <ClientDashboard 
                   client={(user?.clientData || (user?.isMock ? CURRENT_CLIENT : null)) as any} 
@@ -122,12 +114,7 @@ const AppContent: React.FC = () => {
       case 'admin':
         return <AdminDashboard role="admin" />;
       default:
-        return (
-          <div className="p-8 text-center">
-            <h2 className="text-xl font-black">Unknown role: {effectiveRole}</h2>
-            <button onClick={logout} className="mt-4 text-brand-primary font-black underline">Sign Out</button>
-          </div>
-        );
+        return <div>Unknown role</div>;
     }
   };
 
@@ -141,8 +128,10 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  // Basic check for connection config existence
   const isDbConnected = !!supabase;
   
+  // Simple routing for OAuth callback
   if (window.location.pathname === '/square/callback') {
     return (
         <SettingsProvider>
