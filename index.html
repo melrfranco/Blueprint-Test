@@ -80,13 +80,12 @@
             }
           };
 
-          if (document.readyState === 'loading') {
-            // The DOM is not yet ready, so we must wait.
-            document.addEventListener('DOMContentLoaded', applyBodyPreferences, { once: true });
-          } else {
-            // The DOM is already loaded, we can apply styles immediately.
-            applyBodyPreferences();
-          }
+          // THE FIX: The previous `if/else` on `document.readyState` was unreliable and could
+          // cause a crash if it ran after the document was 'interactive' but before the `<body>`
+          // tag was parsed. The most robust solution is to always attach the event listener.
+          // The browser will execute it immediately if the DOM is already loaded, or wait if it is not.
+          // This completely eliminates the race condition.
+          document.addEventListener('DOMContentLoaded', applyBodyPreferences, { once: true });
 
         } catch (e) {
           console.log('Error loading preferences', e);

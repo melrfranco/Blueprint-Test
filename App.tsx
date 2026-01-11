@@ -13,7 +13,6 @@ import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PlanProvider, usePlans } from './contexts/PlanContext';
 import './styles/accessibility.css';
-import SquareCallback from './components/SquareCallback';
 import { SquareIntegrationService } from './services/squareIntegration';
 
 const AppContent: React.FC = () => {
@@ -21,9 +20,12 @@ const AppContent: React.FC = () => {
   const { getPlanForClient } = usePlans();
   const { integration, updateIntegration } = useSettings();
 
+  // The 'square_oauth_complete' flag is set in index.tsx before redirect.
+  // We check it here after the app has loaded on the root path.
   const squareAuthed = sessionStorage.getItem('square_oauth_complete') === 'true';
 
   useEffect(() => {
+    // This effect now runs safely after the redirect, once the main app is mounted.
     if (squareAuthed) {
       async function syncSquareCustomers() {
         try {
@@ -31,7 +33,6 @@ const AppContent: React.FC = () => {
           if (!code) return;
 
           // 1. Exchange OAuth code for access token
-          // We use the environment from settings.
           const tokens = await SquareIntegrationService.exchangeCodeForToken(code, integration.environment || 'production');
           
           // 2. Update persistent integration settings with the new tokens
@@ -73,20 +74,24 @@ const AppContent: React.FC = () => {
             JSON.stringify(squareCustomers)
           );
           
-          // Clear the code so we don't repeat the exchange/sync process on every mount
+          // Clear auth state from sessionStorage now that the process is complete
           sessionStorage.removeItem('square_oauth_code');
+          sessionStorage.removeItem('square_oauth_complete');
           
         } catch (e) {
           console.error('Failed to sync Square customers:', e);
+          // Also clear state on failure to prevent re-running a failed flow
+          sessionStorage.removeItem('square_oauth_code');
+          sessionStorage.removeItem('square_oauth_complete');
         }
       }
       syncSquareCustomers();
     }
-  }, [squareAuthed, integration, updateIntegration]);
+  // This effect should only run once after the initial authentication flow.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [squareAuthed]);
 
   if (!isAuthenticated && !squareAuthed) {
-      // The onLogin prop is removed as client auth is now handled by Supabase,
-      // and mock stylist/admin login is passed directly via the component.
       return <LoginScreen onLogin={login} />;
   }
 
@@ -98,13 +103,10 @@ const AppContent: React.FC = () => {
 
     switch (effectiveRole) {
       case 'stylist':
-        // Stylist dashboard needs to know who the client is. 
-        // For MVP, StylistDashboard manages its own client selection state.
         return <StylistDashboard 
                   onLogout={logout} 
                />;
       case 'client':
-        // Load the REAL plan for this client
         const myPlan = user?.clientData ? getPlanForClient(user.clientData.id) : null;
         return <ClientDashboard 
                   client={(user?.clientData || (user?.isMock ? CURRENT_CLIENT : null)) as any} 
@@ -131,19 +133,9 @@ const App: React.FC = () => {
   // Basic check for connection config existence
   const isDbConnected = !!supabase;
   
-  // Simple routing for OAuth callback
-  if (window.location.pathname === '/square/callback') {
-    return (
-        <SettingsProvider>
-            <AuthProvider>
-                <PlanProvider>
-                    <SquareCallback />
-                </PlanProvider>
-            </AuthProvider>
-        </SettingsProvider>
-    );
-  }
-
+  // The routing for '/square/callback' has been moved to index.tsx to prevent
+  // the React app from mounting on that route, which was causing a crash.
+  
   return (
     <SettingsProvider>
         <AuthProvider>
