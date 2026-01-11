@@ -132,34 +132,13 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
     const redirectUri = import.meta.env.VITE_SQUARE_REDIRECT_URI;
   
     const scopes = [
-      'CUSTOMERS_READ',
-      'CUSTOMERS_WRITE',
-      'EMPLOYEES_READ',
-      'EMPLOYEES_WRITE',
-      'ITEMS_READ',
-      'ITEMS_WRITE',
-      'APPOINTMENTS_READ',
-      'APPOINTMENTS_WRITE',
-      'MERCHANT_PROFILE_READ',
-      'MERCHANT_PROFILE_WRITE',
-      'ORDERS_READ',
-      'ORDERS_WRITE',
-      'PAYMENTS_READ',
-      'PAYMENTS_WRITE',
-      'INVOICES_READ',
-      'INVOICES_WRITE',
-      'SUBSCRIPTIONS_READ',
-      'SUBSCRIPTIONS_WRITE',
-      'LOYALTY_READ',
-      'LOYALTY_WRITE',
-      'INVENTORY_READ',
-      'INVENTORY_WRITE',
-      'LOCATIONS_READ',
-      'DEVICES_READ',
-      'GIFTCARDS_READ',
-      'GIFTCARDS_WRITE',
-      'PAYOUTS_READ',
-    ].map(s => s.trim()).join(' ');
+        'CUSTOMERS_READ',
+        'APPOINTMENTS_READ',
+        'APPOINTMENTS_WRITE',
+        'ITEMS_READ',
+        'EMPLOYEES_READ',
+        'MERCHANT_PROFILE_READ'
+    ].join(' ');
   
     const authorizeBase = 'https://connect.squareup.com/oauth2/authorize';
   
@@ -537,7 +516,7 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
                 <div className="grid grid-cols-2 gap-3 mb-8 animate-fade-in">
                     {settingsViews.map(view => (
                         <button key={view.key} onClick={() => setActiveSettingsView(view.key as SettingsView)} className="p-4 rounded-2xl flex flex-col items-center justify-center text-center transition-all border-4 bg-white text-gray-950 border-gray-100 hover:border-brand-accent hover:shadow-lg">
-                           <view.icon className="w-7 h-7 mb-2 text-brand-primary" />
+                           <view.icon className="w-7 h-7 text-brand-primary" />
                            <span className="text-xs font-black uppercase tracking-widest">{view.label}</span>
                         </button>
                     ))}

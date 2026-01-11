@@ -86,32 +86,13 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     }
 
     const scopes = [
-      'CUSTOMERS_READ',
-      'CUSTOMERS_WRITE',
-      'EMPLOYEES_READ',
-      'EMPLOYEES_WRITE',
-      'ITEMS_READ',
-      'ITEMS_WRITE',
-      'APPOINTMENTS_READ',
-      'APPOINTMENTS_WRITE',
-      'MERCHANT_PROFILE_READ',
-      'MERCHANT_PROFILE_WRITE',
-      'ORDERS_READ',
-      'ORDERS_WRITE',
-      'PAYMENTS_READ',
-      'PAYMENTS_WRITE',
-      'INVOICES_READ',
-      'INVOICES_WRITE',
-      'SUBSCRIPTIONS_READ',
-      'SUBSCRIPTIONS_WRITE',
-      'INVENTORY_READ',
-      'INVENTORY_WRITE',
-      'LOYALTY_READ',
-      'LOYALTY_WRITE',
-      'GIFTCARDS_READ',
-      'GIFTCARDS_WRITE',
-      'PAYOUTS_READ',
-    ].map(s => s.trim()).join(' ');
+        'CUSTOMERS_READ',
+        'APPOINTMENTS_READ',
+        'APPOINTMENTS_WRITE',
+        'ITEMS_READ',
+        'EMPLOYEES_READ',
+        'MERCHANT_PROFILE_READ'
+    ].join(' ');
 
     const authorizeBase = 'https://connect.squareup.com/oauth2/authorize';
     const state = crypto.randomUUID();

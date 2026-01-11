@@ -12,7 +12,8 @@
     "react": "^19.2.2",
     "react-dom": "^19.2.2",
     "recharts": "^3.5.1",
-    "@supabase/supabase-js": "2"
+    "@supabase/supabase-js": "2",
+    "@vercel/node": "^5.5.16"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
