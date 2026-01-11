@@ -203,41 +203,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         document.body.classList.add(`text-size-${textSize.toLowerCase()}`);
     }, [textSize]);
 
-    useEffect(() => {
-        const fetchClientsFromDb = async () => {
-            if (!supabase) return;
-            try {
-                const { data, error } = await supabase.from('clients').select('*');
-                if (!error && data) {
-                    const dbClients: Client[] = data.map(row => ({
-                        id: row.id,
-                        externalId: row.external_id,
-                        name: row.name,
-                        email: row.email,
-                        phone: row.phone,
-                        avatarUrl: row.avatar_url,
-                        historicalData: [],
-                        source: row.source
-                    }));
-                    
-                    if (dbClients.length > 0) {
-                        setClients(prev => {
-                            const clientMap = new Map();
-                            // Keep mock clients as fallback
-                            MOCK_CLIENTS.forEach(c => clientMap.set(c.id, c));
-                            // Overwrite with DB data
-                            dbClients.forEach(c => clientMap.set(c.id, c));
-                            return Array.from(clientMap.values());
-                        });
-                    }
-                }
-            } catch (err) {
-                console.error("Error fetching clients from database:", err);
-            }
-        };
-        fetchClientsFromDb();
-    }, []);
-
     const updateTextSize = (size: AppTextSize) => {
         setTextSize(size);
         localStorage.setItem('admin_text_size', size);

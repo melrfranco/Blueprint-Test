@@ -7,7 +7,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { usePlans } from '../contexts/PlanContext';
 import { supabase } from '../lib/supabase';
-import { CheckCircleIcon, TrashIcon, DocumentTextIcon, RefreshIcon, SettingsIcon, UsersIcon, ChevronLeftIcon, CalendarIcon, PlusIcon } from './icons';
+import { CheckCircleIcon, TrashIcon, DocumentTextIcon, RefreshIcon, SettingsIcon, UsersIcon, ChevronLeftIcon, CalendarIcon } from './icons';
 import AccountSettings from './AccountSettings';
 
 interface ClientDashboardProps {
@@ -27,13 +27,11 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client: propClient, p
   const { logout, user } = useAuth();
   const { getClientHistory, getClientBookings } = usePlans();
 
-  // AUTHENTICATION CHECK: Handle the "Not Linked" state
-  const isUnlinked = !user?.isMock && !user?.clientData;
-
   // Effect for AUTHENTICATED (real) clients
   useEffect(() => {
     const hydrateRealClient = async () => {
       // This logic is only for real, authenticated users.
+      // It relies on the authUser object from Supabase, NOT the mock user.
       if (!supabase || user?.isMock) return;
       
       const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -43,9 +41,10 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client: propClient, p
         .from("clients")
         .select("*")
         .eq("email", authUser.email)
-        .maybeSingle();
+        .single();
 
       if (clientError || !clientRow) {
+        console.warn("Could not find a matching client profile for the logged-in user.", clientError);
         return;
       }
       
@@ -92,7 +91,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client: propClient, p
     };
 
     hydrateRealClient();
-  }, [user]);
+  }, [user]); // Re-run if the user object changes (login/logout).
 
   // FINALIZED Effect for SAMPLE (mock) clients in AI Studio preview
   useEffect(() => {
@@ -128,34 +127,16 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client: propClient, p
                     date: new Date(a.date)
                 }))
             };
+            // Force the view to show only this single, most recent plan.
             setRealPlans([formattedPlan]);
         }
       }
     };
 
     loadMostRecentPlanForPreview();
-  }, [user?.isMock]);
+  }, [user?.isMock]); // Dependency ensures this runs only when the mock user logs in.
 
-  if (isUnlinked) {
-      return (
-          <div className="min-h-screen bg-brand-bg flex flex-col items-center justify-center p-6 text-center">
-              <div className="bg-white p-10 rounded-[40px] shadow-2xl border-4 border-gray-950 max-w-sm">
-                  <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-6 text-gray-400">
-                      <UsersIcon className="w-10 h-10" />
-                  </div>
-                  <h2 className="text-2xl font-black text-gray-950 tracking-tighter mb-4">Account Not Linked</h2>
-                  <p className="text-sm font-bold text-gray-500 leading-relaxed mb-8">
-                      Your account is not yet linked to a salon. Please contact the salon.
-                  </p>
-                  <button onClick={logout} className="w-full bg-gray-950 text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-all">
-                      SIGN OUT
-                  </button>
-              </div>
-          </div>
-      );
-  }
-
-  // Prioritize real data over initial props.
+  // Prioritize real data (from either Supabase effect) over initial props.
   const client = realClient || propClient;
   const allClientPlans = realPlans !== null ? realPlans : getClientHistory(client.id);
 
@@ -236,7 +217,6 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client: propClient, p
           services: a.services,
           type: 'roadmap',
           stylist: p.stylistName,
-          plan: p,
           id: `roadmap-${p.id}-${a.date}`
         }))
       );
@@ -329,7 +309,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client: propClient, p
                 </div>
   
                 <div>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Included Services:</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Included Services for this Visit:</p>
                   <div className="space-y-2">
                     {item.services.map((s: any, idx: number) => (
                         <div key={idx} className="bg-gray-100/50 p-3 rounded-xl border-2 border-gray-100 flex justify-between">
@@ -338,18 +318,8 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client: propClient, p
                     ))}
                   </div>
                 </div>
-                
-                {item.type === 'roadmap' && (
-                    <button 
-                        onClick={() => { setViewingPlan(item.plan); setActiveTab('plan'); }}
-                        className="mt-6 w-full py-4 bg-gray-950 text-white font-black rounded-2xl shadow-xl flex items-center justify-center space-x-3 active:scale-95 transition-all border-b-4 border-gray-800"
-                    >
-                        <CalendarIcon className="w-5 h-5 text-brand-secondary" />
-                        <span>BOOK THIS VISIT</span>
-                    </button>
-                )}
-
-                <p className="text-center text-[10px] font-bold text-gray-400 mt-4 px-2 italic">With {item.stylist}</p>
+                <p className="text-center text-[11px] font-bold text-gray-400 mt-4 px-2">Appointments vary based on what your hair needs at each visit to achieve your goals.</p>
+                <p className="text-right text-[10px] font-black text-gray-400 uppercase tracking-widest mt-3">With {item.stylist}</p>
             </div>
           );
       };
@@ -399,13 +369,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client: propClient, p
              if (allClientPlans.length === 0) return (
                  <div className="p-8 text-center h-full flex flex-col items-center justify-center text-gray-400 font-black uppercase text-sm tracking-widest">
                      <DocumentTextIcon className="w-16 h-16 mb-4 opacity-20" />
-                     <p className="px-10 leading-tight mb-8">Your stylist is currently building your maintenance blueprint.</p>
-                     <button 
-                        onClick={() => setActiveTab('appointments')}
-                        className="bg-brand-primary text-white font-black py-4 px-8 rounded-2xl shadow-xl border-b-4 border-black/20"
-                     >
-                        Check Appointments
-                     </button>
+                     <p className="px-10 leading-tight">Your stylist is currently building your maintenance blueprint.</p>
                  </div>
              );
 

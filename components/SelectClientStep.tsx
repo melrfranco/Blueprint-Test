@@ -25,7 +25,34 @@ const SelectClientStep: React.FC<SelectClientStepProps> = ({ clients: propClient
 
   const isAdmin = user?.role === 'admin';
 
-  const clients = propClients;
+  const clients = useMemo(() => {
+    // 1. Try to get Square customers from the local sync cache for immediate availability
+    const squareRaw = localStorage.getItem('square_customers');
+    let squareClientsData = [];
+    try {
+        squareClientsData = JSON.parse(squareRaw || '[]');
+    } catch (e) {
+        console.error("Failed to parse cached Square customers:", e);
+    }
+    
+    // 2. If we have cached Square data, use it. This provides a fast path right after OAuth.
+    if (squareClientsData && squareClientsData.length > 0) {
+      return squareClientsData.map((c: any) => ({
+        id: c.id,
+        externalId: c.id,
+        name: `${c.given_name ?? ''} ${c.family_name ?? ''}`.trim() || c.email_address || 'Unnamed Client',
+        email: c.email_address ?? '',
+        avatarUrl: c.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(c.given_name || 'U')}&background=random`,
+        historicalData: [],
+        source: 'square',
+      })) as Client[];
+    }
+
+    // 3. Otherwise, use the clients provided by the parent (which are fetched from the DB).
+    // Filter to ensure we only show real clients if the user expects only real clients,
+    // but we keep the propClients as fallback so sample clients still appear if sync hasn't happened.
+    return propClients;
+  }, [propClients]);
 
   const filteredClients = useMemo(() => {
     return clients.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
