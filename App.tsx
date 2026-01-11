@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { GeneratedPlan, UserRole } from './types';
 import { CURRENT_CLIENT } from './data/mockData';
 import RoleSwitcher from './components/RoleSwitcher';
@@ -20,21 +20,24 @@ const AppContent: React.FC = () => {
   const { user, login, logout, isAuthenticated } = useAuth();
   const { getPlanForClient } = usePlans();
   const { integration, updateIntegration } = useSettings();
+  
+  // Track explicitly selected role to support post-login selection screen
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
 
   const squareAuthed = sessionStorage.getItem('square_oauth_complete') === 'true';
+  const hasCode = !!sessionStorage.getItem('square_oauth_code');
 
   useEffect(() => {
-    if (squareAuthed) {
+    if (hasCode) {
       async function syncSquareCustomers() {
         try {
           const code = sessionStorage.getItem('square_oauth_code');
           if (!code) return;
 
-          // 1. Exchange OAuth code for access token
-          // We use the environment from settings.
+          // 1. Exchange OAuth code for access token via Server-side endpoint
           const tokens = await SquareIntegrationService.exchangeCodeForToken(code, integration.environment || 'production');
           
-          // 2. Update persistent integration settings with the new tokens
+          // 2. Update persistent integration settings
           updateIntegration({
             ...integration,
             squareAccessToken: tokens.accessToken,
@@ -45,7 +48,7 @@ const AppContent: React.FC = () => {
           // 3. Fetch live customers from Square API
           const squareCustomers = await SquareIntegrationService.fetchCustomers(tokens.accessToken, integration.environment || 'production');
 
-          // 4. Persist Square customers to the application's database
+          // 4. Persist Square customers to database
           if (supabase && squareCustomers.length > 0) {
               const upsertData = squareCustomers.map(c => ({
                   external_id: c.id,
@@ -62,49 +65,40 @@ const AppContent: React.FC = () => {
               
               if (error) {
                   console.error('Failed to persist Square customers to database:', error);
-              } else {
-                  console.log(`Successfully synced ${squareCustomers.length} customers from Square to database.`);
               }
           }
 
-          // Store in localStorage for immediate frontend selector availability
-          localStorage.setItem(
-            'square_customers',
-            JSON.stringify(squareCustomers)
-          );
-          
-          // Clear the code so we don't repeat the exchange/sync process on every mount
-          sessionStorage.removeItem('square_oauth_code');
-          
+          localStorage.setItem('square_customers', JSON.stringify(squareCustomers));
+          sessionStorage.setItem('square_oauth_complete', 'true');
         } catch (e) {
           console.error('Failed to sync Square customers:', e);
+        } finally {
+          sessionStorage.removeItem('square_oauth_code');
         }
       }
       syncSquareCustomers();
     }
-  }, [squareAuthed, integration, updateIntegration]);
+  }, [hasCode, integration, updateIntegration]);
 
-  if (!isAuthenticated && !squareAuthed) {
-      // The onLogin prop is removed as client auth is now handled by Supabase,
-      // and mock stylist/admin login is passed directly via the component.
-      return <LoginScreen onLogin={login} />;
+  // If not authenticated via Supabase AND not authenticated via Square, show login
+  if (!isAuthenticated && !squareAuthed && !hasCode) {
+    return <LoginScreen onLogin={login} onSelectRole={setSelectedRole} />;
+  }
+
+  // If authenticated but NO role is selected, show LoginScreen (Landing Mode)
+  if (!selectedRole) {
+    return <LoginScreen onLogin={login} onSelectRole={setSelectedRole} />;
   }
 
   const renderDashboard = () => {
-    // Square-auth users are treated as ADMIN role if no other user is logged in
-    const effectiveRole = user?.role || (squareAuthed ? 'admin' : null);
+    const effectiveRole = selectedRole;
 
     if (!effectiveRole) return null;
 
     switch (effectiveRole) {
       case 'stylist':
-        // Stylist dashboard needs to know who the client is. 
-        // For MVP, StylistDashboard manages its own client selection state.
-        return <StylistDashboard 
-                  onLogout={logout} 
-               />;
+        return <StylistDashboard onLogout={logout} />;
       case 'client':
-        // Load the REAL plan for this client
         const myPlan = user?.clientData ? getPlanForClient(user.clientData.id) : null;
         return <ClientDashboard 
                   client={(user?.clientData || (user?.isMock ? CURRENT_CLIENT : null)) as any} 
@@ -114,7 +108,12 @@ const AppContent: React.FC = () => {
       case 'admin':
         return <AdminDashboard role="admin" />;
       default:
-        return <div>Unknown role</div>;
+        return (
+          <div className="p-8 text-center">
+            <h2 className="text-xl font-black">Unknown role: {effectiveRole}</h2>
+            <button onClick={logout} className="mt-4 text-brand-primary font-black underline">Sign Out</button>
+          </div>
+        );
     }
   };
 
@@ -128,22 +127,12 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  // Basic check for connection config existence
-  const isDbConnected = !!supabase;
-  
-  // Simple routing for OAuth callback
+  // ROUTING FIX: Handle callback immediately to prevent context-related crashes
   if (window.location.pathname === '/square/callback') {
-    return (
-        <SettingsProvider>
-            <AuthProvider>
-                <PlanProvider>
-                    <SquareCallback />
-                </PlanProvider>
-            </AuthProvider>
-        </SettingsProvider>
-    );
+    return <SquareCallback />;
   }
 
+  const isDbConnected = !!supabase;
   return (
     <SettingsProvider>
         <AuthProvider>

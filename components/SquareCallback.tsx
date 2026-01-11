@@ -1,20 +1,25 @@
 
 import { useEffect } from 'react';
 
-const SquareCallback = () => {
+export default function SquareCallback() {
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+      const state = params.get('state');
 
-    if (code) {
-      sessionStorage.setItem('square_oauth_complete', 'true');
-      sessionStorage.setItem('square_oauth_code', code);
+      if (code) {
+        sessionStorage.setItem('square_oauth_code', code);
+      }
+      if (state) {
+        sessionStorage.setItem('square_oauth_state', state);
+      }
+    } catch (e) {
+      console.error('Square callback parse failed', e);
+    } finally {
+      window.location.replace('/');
     }
-
-    window.location.replace('/');
   }, []);
 
   return null;
-};
-
-export default SquareCallback;
+}
