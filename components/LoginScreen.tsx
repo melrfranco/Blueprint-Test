@@ -35,7 +35,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
 
     try {
         if (clientAuthMode === 'signup') {
-            const { data, error } = await signUpClient({ email, password });
+            const { data, error } = await signUpClient({ 
+                email, 
+                password,
+                options: { data: { role: 'client' } } 
+            });
             if (error) throw error;
             if (data.user && !data.session) {
                 setAuthMessage("Success! Please check your email to confirm your account.");
@@ -83,9 +87,30 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
 
     const scopes = [
       'CUSTOMERS_READ',
-      'ITEMS_READ',
+      'CUSTOMERS_WRITE',
       'EMPLOYEES_READ',
+      'EMPLOYEES_WRITE',
+      'ITEMS_READ',
+      'ITEMS_WRITE',
+      'APPOINTMENTS_READ',
+      'APPOINTMENTS_WRITE',
       'MERCHANT_PROFILE_READ',
+      'MERCHANT_PROFILE_WRITE',
+      'ORDERS_READ',
+      'ORDERS_WRITE',
+      'PAYMENTS_READ',
+      'PAYMENTS_WRITE',
+      'INVOICES_READ',
+      'INVOICES_WRITE',
+      'SUBSCRIPTIONS_READ',
+      'SUBSCRIPTIONS_WRITE',
+      'INVENTORY_READ',
+      'INVENTORY_WRITE',
+      'LOYALTY_READ',
+      'LOYALTY_WRITE',
+      'GIFTCARDS_READ',
+      'GIFTCARDS_WRITE',
+      'PAYOUTS_READ',
     ].map(s => s.trim()).join(' ');
 
     const authorizeBase = 'https://connect.squareup.com/oauth2/authorize';
