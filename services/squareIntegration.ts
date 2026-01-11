@@ -1,5 +1,4 @@
 
-
 import { Service, Stylist, Client, PlanAppointment } from '../types';
 
 // Square API Types (Simplified)
@@ -60,7 +59,6 @@ async function fetchFromSquare(endpoint: string, accessToken: string, environmen
 }
 
 export const SquareIntegrationService = {
-  // FIX: Moved and renamed formatRFC3339WithOffset to formatDate and added to the service object.
   formatDate(date: Date, timezone: string = 'UTC') {
     if (!date || isNaN(date.getTime())) {
         return new Date().toISOString();
@@ -111,40 +109,34 @@ export const SquareIntegrationService = {
     }
   },
   
+  /**
+   * SERVER-SIDE TOKEN EXCHANGE
+   * Calls the application's backend endpoint to securely exchange the authorization code.
+   * This prevents leaking the Square Client Secret to the frontend.
+   */
+  // FIX: Renamed from exchangeCodeViaServer to exchangeCodeForToken to match usage in App.tsx
   exchangeCodeForToken: async (code: string, env: SquareEnvironment): Promise<{ accessToken: string, refreshToken: string, merchantId: string }> => {
-    const baseUrl = env === 'sandbox' ? SANDBOX_API_BASE : PROD_API_BASE;
-    const targetUrl = `${baseUrl}/oauth2/token`;
-    const proxiedUrl = `${PROXY_URL}${encodeURIComponent(targetUrl)}`;
-
-    const response = await fetch(proxiedUrl, {
+    // The server endpoint handles the Square API call directly using its secure client_secret.
+    const response = await fetch('/api/square/oauth/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        // FIX: Suppress TypeScript error for import.meta.env which is a Vite-specific feature.
-        // @ts-ignore
-        client_id: import.meta.env.VITE_SQUARE_APPLICATION_ID,
-        // FIX: Suppress TypeScript error for import.meta.env which is a Vite-specific feature.
-        // @ts-ignore
-        client_secret: import.meta.env.VITE_SQUARE_CLIENT_SECRET,
-        code: code,
-        grant_type: 'authorization_code',
-        // @ts-ignore
-        redirect_uri: import.meta.env.VITE_SQUARE_REDIRECT_URI
+        code,
+        environment: env
       }),
     });
 
     const data = await response.json();
     if (!response.ok) {
-        const err = data.errors?.[0];
-        throw new Error(err ? `${err.detail}` : `OAuth Token Exchange Failed: ${response.status}`);
+        throw new Error(data.message || `Server-side OAuth exchange failed: ${response.status}`);
     }
     
     return {
-        accessToken: data.access_token,
-        refreshToken: data.refresh_token,
-        merchantId: data.merchant_id,
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+        merchantId: data.merchantId,
     };
   },
   
@@ -167,7 +159,6 @@ export const SquareIntegrationService = {
       return { business_name: merchant.business_name || 'Admin' };
   },
 
-  // FIX: Added fetchCatalog to fetch services from Square.
   fetchCatalog: async (accessToken: string, env: SquareEnvironment): Promise<Service[]> => {
     const data = await fetchFromSquare('/catalog/list?types=ITEM,ITEM_VARIATION,CATEGORY', accessToken, env);
     const objects = data.objects || [];
@@ -185,19 +176,18 @@ export const SquareIntegrationService = {
             const durationMs = variation.item_variation_data.service_duration;
 
             services.push({
-                id: variation.id, // Use variation ID as it's what's booked
+                id: variation.id, 
                 version: variation.version,
                 name: `${item.item_data.name}${variation.item_variation_data.name !== 'Regular' ? ` - ${variation.item_variation_data.name}` : ''}`.trim(),
                 category: categoryObj?.category_data?.name || 'Uncategorized',
                 cost: priceMoney ? Number(priceMoney.amount) / 100 : 0,
-                duration: durationMs ? durationMs / 1000 / 60 : 0, // Convert ms to minutes
+                duration: durationMs ? durationMs / 1000 / 60 : 0, 
             });
         }
     });
     return services;
   },
 
-  // FIX: Added fetchTeam to fetch stylists from Square.
   fetchTeam: async (accessToken: string, env: SquareEnvironment): Promise<Stylist[]> => {
       const data = await fetchFromSquare('/team-members/search', accessToken, env, {
           method: 'POST',
@@ -211,12 +201,12 @@ export const SquareIntegrationService = {
       });
       const members = data.team_members || [];
       return members.map((member: any) => ({
-          id: member.id, // external Square ID
+          id: member.id, 
           name: `${member.given_name} ${member.family_name}`,
           role: member.is_owner ? 'Owner' : 'Team Member',
           email: member.email_address,
-          levelId: 'lvl_2', // Default level
-          permissions: { // Default permissions
+          levelId: 'lvl_2', 
+          permissions: { 
               canBookAppointments: true,
               canOfferDiscounts: false,
               requiresDiscountApproval: true,
@@ -227,7 +217,6 @@ export const SquareIntegrationService = {
       }));
   },
 
-  // FIX: Added fetchCustomers to fetch clients from Square.
   fetchCustomers: async (accessToken: string, env: SquareEnvironment): Promise<Partial<Client>[]> => {
       let cursor: string | undefined = undefined;
       const allCustomers: any[] = [];
@@ -252,7 +241,7 @@ export const SquareIntegrationService = {
       }));
   },
 
-  // FIX: Added searchCustomer to find a client by name in Square.
+  // FIX: Completed the searchCustomer function and resolved the return value error.
   searchCustomer: async (accessToken: string, env: SquareEnvironment, name: string): Promise<string | null> => {
       const nameParts = name.trim().split(/\s+/);
       const firstName = nameParts[0];
@@ -260,145 +249,73 @@ export const SquareIntegrationService = {
 
       const body: any = {
           query: {
-              filter: {},
-              sort: {
-                  field: "CREATED_AT",
-                  order: "DESC"
-              }
+            filter: {
+              given_name: { exact: firstName },
+              family_name: { exact: lastName }
+            }
+          }
+      };
+      const data = await fetchFromSquare('/customers/search', accessToken, env, { method: 'POST', body });
+      return data.customers?.[0]?.id || null;
+  },
+
+  // FIX: Added findAvailableSlots method to resolve errors in PlanSummaryStep.tsx.
+  async findAvailableSlots(accessToken: string, environment: SquareEnvironment, params: { locationId: string, startAt: string, teamMemberId: string, serviceVariationId: string }) {
+    const startAtDate = new Date(params.startAt);
+    const endAt = new Date(startAtDate.getTime() + 7 * 24 * 60 * 60 * 1000); // 1 week window
+
+    const body = {
+      query: {
+        filter: {
+          start_at_range: {
+            start_at: params.startAt,
+            end_at: endAt.toISOString()
           },
-          limit: 1
-      };
-      
-      if (lastName) {
-          body.query.filter.given_name = { exact: firstName };
-          body.query.filter.family_name = { exact: lastName };
-      } else if (firstName) {
-          // Fallback for single name
-          body.query.filter.given_name = { exact: firstName };
-      }
-
-
-      const data = await fetchFromSquare('/customers/search', accessToken, env, {
-          method: 'POST',
-          body: body
-      });
-      
-      const customer = data.customers?.[0];
-      return customer ? customer.id : null;
-  },
-
-  findAvailableSlots: async (accessToken: string, env: SquareEnvironment, params: {
-      locationId: string,
-      startAt: string,
-      teamMemberId: string,
-      serviceVariationId: string
-  }): Promise<string[]> => {
-      const startDate = new Date(params.startAt);
-      if (isNaN(startDate.getTime())) throw new Error("Invalid start time passed to Square.");
-
-      // Search a 30-day window to populate the calendar view
-      const endDate = new Date(startDate.getTime() + (30 * 24 * 60 * 60 * 1000)); 
-
-      const segment_filter: {
-          service_variation_id: string;
-          team_member_id_filter?: { any: string[] };
-      } = {
-          service_variation_id: params.serviceVariationId,
-      };
-
-      // A valid Square team member ID must be provided. Internal IDs like 'admin' or
-      // mock IDs like 'TM-...' are not valid for the Square API filter.
-      // If the provided ID is not a valid-looking Square ID, we omit the filter to search
-      // across all available team members. The final booking will resolve a correct ID.
-      const teamMemberId = params.teamMemberId;
-      const isInvalidForFilter = !teamMemberId || teamMemberId.startsWith('TM-') || teamMemberId === 'admin';
-
-      if (!isInvalidForFilter) {
-          segment_filter.team_member_id_filter = { any: [teamMemberId] };
-      }
-
-      const body = {
-          query: {
-              filter: {
-                  location_id: params.locationId,
-                  start_at_range: {
-                      start_at: params.startAt,
-                      end_at: endDate.toISOString()
-                  },
-                  segment_filters: [segment_filter]
+          location_id: params.locationId,
+          segment_filters: [
+            {
+              service_variation_id: params.serviceVariationId,
+              team_member_id_filter: {
+                any: [params.teamMemberId]
               }
-          }
-      };
-
-      const data = await fetchFromSquare('/bookings/availability/search', accessToken, env, { method: 'POST', body });
-      const slots = (data.availabilities || [])
-          .map((a: any) => a.start_at);
-      
-      return slots;
-  },
-
-  fetchAllBookings: async (accessToken: string, env: SquareEnvironment, locationId: string): Promise<any[]> => {
-    let cursor = undefined;
-    const allBookings: any[] = [];
-    
-    do {
-        const url = `/bookings?location_id=${locationId}${cursor ? `&cursor=${cursor}` : ''}`;
-        const data = await fetchFromSquare(url, accessToken, env);
-        if (data.bookings) {
-            allBookings.push(...data.bookings);
+            }
+          ]
         }
-        cursor = data.cursor;
-    } while (cursor);
-
-    return allBookings;
-  },
-
-  createAppointment: async (accessToken: string, env: SquareEnvironment, bookingDetails: {
-      locationId: string;
-      startAt: string; 
-      customerId: string;
-      teamMemberId: string;
-      services: Service[];
-  }): Promise<any> => {
-      const { locationId, startAt, customerId, teamMemberId, services } = bookingDetails;
-      
-      if (!locationId) throw new Error("Location ID is required for booking.");
-      if (!customerId) throw new Error("Customer ID is required for booking.");
-
-      let resolvedTeamMemberId = teamMemberId;
-      const isInvalidTeamMemberId = !teamMemberId || teamMemberId.startsWith('TM-') || teamMemberId === 'admin';
-
-      if (isInvalidTeamMemberId) {
-          // Fetch all bookable team members from Square.
-          // FIX: Call the newly added fetchTeam method correctly.
-          const teamMembers = await SquareIntegrationService.fetchTeam(accessToken, env);
-          if (!teamMembers || teamMembers.length === 0) {
-              throw new Error("No bookable team members found in Square to assign this appointment to.");
-          }
-          // Use the first available team member as the fallback default.
-          resolvedTeamMemberId = teamMembers[0].id;
       }
-      
-      const serviceVersionMap = new Map<string, number>();
-      services.forEach(s => {
-          if (s.id && s.version) {
-              serviceVersionMap.set(s.id, s.version);
-          }
-      });
+    };
 
-      const body = {
-          booking: {
-              location_id: locationId,
-              start_at: startAt,
-              customer_id: customerId,
-              appointment_segments: services.map(service => ({
-                  team_member_id: resolvedTeamMemberId,
-                  service_variation_id: service.id,
-                  service_variation_version: serviceVersionMap.get(service.id) || undefined
-              }))
-          }
-      };
-
-      return await fetchFromSquare('/bookings', accessToken, env, { method: 'POST', body });
+    const data = await fetchFromSquare('/bookings/availability/search', accessToken, environment, { method: 'POST', body });
+    return data.availabilities?.map((a: any) => a.start_at) || [];
   },
+
+  // FIX: Added createAppointment method to resolve errors in PlanSummaryStep.tsx.
+  async createAppointment(accessToken: string, environment: SquareEnvironment, params: { locationId: string, startAt: string, customerId: string, teamMemberId: string, services: Service[] }) {
+    const body = {
+      booking: {
+        location_id: params.locationId,
+        start_at: params.startAt,
+        customer_id: params.customerId,
+        appointment_segments: params.services.map(s => ({
+          service_variation_id: s.id,
+          team_member_id: params.teamMemberId,
+          service_variation_version: s.version
+        }))
+      }
+    };
+    return await fetchFromSquare('/bookings', accessToken, environment, { method: 'POST', body });
+  },
+
+  // FIX: Added fetchAllBookings method to resolve error in AdminDashboard.tsx.
+  async fetchAllBookings(accessToken: string, environment: SquareEnvironment, locationId: string) {
+    const body = {
+      query: {
+        filter: {
+          location_id: locationId,
+          status: { any: ['ACCEPTED', 'PENDING'] }
+        }
+      }
+    };
+    const data = await fetchFromSquare('/bookings/search', accessToken, environment, { method: 'POST', body });
+    return data.bookings || [];
+  }
 };
