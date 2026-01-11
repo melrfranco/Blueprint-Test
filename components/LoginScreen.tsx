@@ -88,27 +88,38 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSelectRole }) => {
   const safePrimaryColor = ensureAccessibleColor(branding.primaryColor, '#FFFFFF', '#BE123C');
   
   const handleSquareLogin = () => {
-    const clientId = process.env.VITE_SQUARE_APPLICATION_ID;
-    const redirectUri = process.env.VITE_SQUARE_REDIRECT_URI;
+    // Robust access to environment variables from multiple possible sources
+    const clientId = process.env.VITE_SQUARE_APPLICATION_ID || (import.meta as any).env?.VITE_SQUARE_APPLICATION_ID;
+    const redirectUri = process.env.VITE_SQUARE_REDIRECT_URI || (import.meta as any).env?.VITE_SQUARE_REDIRECT_URI;
 
-    if (!clientId) {
-      setAuthError('Square login is unavailable. The application ID is missing.');
+    if (!clientId || !redirectUri) {
+      setAuthError(
+        'Square login is unavailable. Environment variables are missing at runtime. ' +
+        'Please ensure VITE_SQUARE_APPLICATION_ID and VITE_SQUARE_REDIRECT_URI are configured.'
+      );
       return;
     }
 
+    // LOCKED, VALID SCOPES ONLY (Minimizes authorization errors)
     const scopes = [
-      'CUSTOMERS_READ', 'CUSTOMERS_WRITE', 'EMPLOYEES_READ', 'EMPLOYEES_WRITE',
-      'ITEMS_READ', 'ITEMS_WRITE', 'APPOINTMENTS_READ', 'APPOINTMENTS_WRITE',
-      'MERCHANT_PROFILE_READ', 'MERCHANT_PROFILE_WRITE', 'ORDERS_READ', 'ORDERS_WRITE',
-      'PAYMENTS_READ', 'PAYMENTS_WRITE', 'INVOICES_READ', 'INVOICES_WRITE',
-      'SUBSCRIPTIONS_READ', 'SUBSCRIPTIONS_WRITE', 'INVENTORY_READ', 'INVENTORY_WRITE',
-      'LOYALTY_READ', 'LOYALTY_WRITE', 'GIFTCARDS_READ', 'GIFTCARDS_WRITE', 'PAYOUTS_READ',
-    ].map(s => s.trim()).join(' ');
+      'CUSTOMERS_READ',
+      'CUSTOMERS_WRITE',
+      'APPOINTMENTS_READ',
+      'APPOINTMENTS_WRITE',
+      'ITEMS_READ',
+      'EMPLOYEES_READ',
+      'MERCHANT_PROFILE_READ'
+    ].join(' ');
 
-    const authorizeBase = 'https://connect.squareup.com/oauth2/authorize';
     const state = crypto.randomUUID();
 
-    const oauthUrl = `${authorizeBase}?client_id=${encodeURIComponent(clientId)}&response_type=code&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}&session=false`;
+    const oauthUrl =
+      'https://connect.squareup.com/oauth2/authorize' +
+      `?client_id=${encodeURIComponent(clientId)}` +
+      `&response_type=code` +
+      `&scope=${encodeURIComponent(scopes)}` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&state=${encodeURIComponent(state)}`;
 
     window.location.href = oauthUrl;
   };
@@ -198,115 +209,114 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin, onSelectRole }) => {
                 {appMode === 'professional' ? 'Pro Access' : branding.salonName}
             </h1>
             <p className="text-gray-400 text-xs font-black uppercase tracking-widest mt-2">
-                {appMode === 'professional' ? 'Internal Management' : 'Client Portal'}
+                {appMode === 'professional' ? 'Select Professional Profile' : 'Customer Account Login'}
             </p>
         </div>
 
         <div className="p-10">
-            {appMode === 'client' ? (
-                <div className="animate-fade-in">
-                    <form onSubmit={handleClientAuth} className="space-y-4">
-                        <h2 className="text-xl font-black text-center mb-4 text-gray-800">{clientAuthMode === 'signin' ? 'Sign In' : 'Create Account'}</h2>
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 tracking-widest">Email</label>
-                            <input 
-                                type="email" 
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                                placeholder="you@example.com"
-                                className="w-full p-4 border-4 border-gray-100 rounded-2xl focus:border-brand-primary outline-none transition-all bg-gray-50 font-bold"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 tracking-widest">Password</label>
-                            <input 
-                                type="password" 
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                placeholder="••••••••"
-                                className="w-full p-4 border-4 border-gray-100 rounded-2xl focus:border-brand-primary outline-none transition-all bg-gray-50 font-bold"
-                            />
-                        </div>
-
-                        {authError && <p className="text-red-600 text-xs font-bold text-center p-3 bg-red-50 rounded-lg">{authError}</p>}
-                        {authMessage && <p className="text-green-600 text-xs font-bold text-center p-3 bg-green-50 rounded-lg">{authMessage}</p>}
-                        
+            {appMode === 'professional' ? (
+                <div className="space-y-4">
+                    {stylists.map(s => (
                         <button 
-                            type="submit" 
-                            disabled={isLoading}
-                            className="w-full text-white font-black py-5 rounded-2xl shadow-xl transition-all active:scale-95 border-b-8 border-black/20 disabled:bg-gray-400"
-                            style={buttonStyle}
+                            key={s.id} 
+                            onClick={() => handleRoleSelection('stylist', s.id)}
+                            className="w-full p-4 border-2 border-gray-100 rounded-2xl flex items-center hover:border-brand-accent transition-all group"
                         >
-                            {isLoading ? <RefreshIcon className="w-6 h-6 animate-spin mx-auto" /> : (clientAuthMode === 'signin' ? 'SIGN IN' : 'SIGN UP')}
+                            <div className="w-10 h-10 bg-brand-accent/10 rounded-xl flex items-center justify-center text-brand-accent font-black mr-4 group-hover:bg-brand-accent group-hover:text-white transition-colors">
+                                {s.name[0]}
+                            </div>
+                            <div className="text-left">
+                                <p className="font-black text-gray-900 leading-none">{s.name}</p>
+                                <p className="text-[10px] text-gray-400 font-black uppercase mt-1">{s.role}</p>
+                            </div>
                         </button>
-                    </form>
-                    <button 
-                        onClick={() => {
-                            setClientAuthMode(prev => prev === 'signin' ? 'signup' : 'signin');
-                            setAuthError(null);
-                            setAuthMessage(null);
-                        }}
-                        className="w-full text-center mt-6 text-xs font-black text-gray-400 uppercase tracking-widest hover:text-brand-primary"
-                    >
-                        {clientAuthMode === 'signin' ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
-                    </button>
-                    <div className="mt-8 pt-6 border-t-2 border-gray-100">
-                        <div className="relative flex justify-center text-[10px] font-black uppercase tracking-widest mb-4">
-                            <span className="px-4 bg-white text-gray-400">DEV ONLY</span>
-                        </div>
+                    ))}
+                    <div className="pt-4 border-t-2 border-gray-50">
                         <button 
-                            type="button"
-                            onClick={handleDevClientLogin}
-                            disabled={isLoading}
-                            className="w-full bg-amber-500 text-white font-black py-4 rounded-2xl shadow-lg border-b-4 border-amber-700 active:scale-95 transition-all disabled:bg-gray-400"
+                            onClick={() => handleRoleSelection('admin')}
+                            className="w-full p-4 bg-gray-950 text-white rounded-2xl font-black text-sm flex items-center justify-center space-x-2 active:scale-95 transition-all"
                         >
-                            {isLoading ? <RefreshIcon className="w-6 h-6 animate-spin mx-auto" /> : "Login as Test Client (Dev Only)"}
+                            <SettingsIcon className="w-4 h-4" />
+                            <span>ADMIN ACCESS</span>
                         </button>
                     </div>
                 </div>
             ) : (
-                <div className="animate-fade-in">
-                    {squareAuthed ? (
-                         <button type="button" onClick={() => handleRoleSelection('admin')} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center space-x-3 border-b-4 border-blue-800 active:scale-95 transition-all text-lg">
-                            <span>Continue as Administrator</span>
-                        </button>
-                    ) : (
-                        <button type="button" onClick={handleSquareLogin} className="w-full bg-blue-600 text-white font-black py-5 rounded-2xl shadow-lg flex items-center justify-center space-x-3 border-b-4 border-blue-800 active:scale-95 transition-all text-lg">
-                            <span>Log in with Square</span>
-                        </button>
-                    )}
-                    {authError && <p className="text-red-600 text-xs font-bold text-center p-3 mt-4 bg-red-50 rounded-lg">{authError}</p>}
-                    
-                    <div className="mt-8 text-gray-500">
-                        <div className="mt-4 pt-4 border-t-2 border-gray-100 space-y-3">
-                            <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400 text-center mb-2">Stylist Access</h3>
-                             {stylists.slice(0, 3).map(s => (
-                                <button key={s.id} onClick={() => handleRoleSelection('stylist', s.id)} className="w-full group flex items-center p-4 rounded-2xl border-4 border-gray-50 hover:border-brand-accent transition-all bg-white text-left">
-                                    <div className="w-10 h-10 rounded-xl bg-brand-accent text-white flex items-center justify-center font-black text-sm">{s.name[0]}</div>
-                                    <div className="ml-3">
-                                        <p className="text-sm font-black text-gray-950 leading-none">{s.name}</p>
-                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">{s.role}</p>
-                                    </div>
-                                </button>
-                            ))}
-                            <button onClick={() => handleRoleSelection('admin')} className="w-full group flex items-center p-4 rounded-2xl border-4 border-gray-950 bg-gray-950 text-white transition-all text-left">
-                                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center font-black text-sm">A</div>
-                                <div className="ml-3">
-                                    <p className="text-sm font-black leading-none">Manual Admin Access</p>
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Full Controller</p>
-                                </div>
-                            </button>
-                        </div>
+                <form onSubmit={handleClientAuth} className="space-y-6">
+                    <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Email Address</label>
+                        <input 
+                            type="email" 
+                            required 
+                            value={email}
+                            onChange={e => setEmail(e.target.value)}
+                            className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none font-bold text-gray-900 focus:border-brand-primary transition-all"
+                        />
                     </div>
-                </div>
+                    <div>
+                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Password</label>
+                        <input 
+                            type="password" 
+                            required 
+                            value={password}
+                            onChange={e => setPassword(e.target.value)}
+                            className="w-full p-4 bg-gray-50 border-2 border-gray-100 rounded-2xl outline-none font-bold text-gray-900 focus:border-brand-primary transition-all"
+                        />
+                    </div>
+
+                    {authError && <p className="text-red-500 text-xs font-bold text-center">{authError}</p>}
+                    {authMessage && <p className="text-green-600 text-xs font-bold text-center">{authMessage}</p>}
+
+                    <div className="space-y-3 pt-2">
+                        <button 
+                            type="submit" 
+                            disabled={isLoading}
+                            className="w-full font-black py-4 rounded-2xl shadow-xl flex items-center justify-center space-x-2 active:scale-95 transition-all border-b-4 border-black/20"
+                            style={buttonStyle}
+                        >
+                            {isLoading ? <RefreshIcon className="w-5 h-5 animate-spin" /> : <span>{clientAuthMode === 'signin' ? 'SIGN IN' : 'CREATE ACCOUNT'}</span>}
+                        </button>
+                        
+                        <button 
+                            type="button"
+                            onClick={() => setClientAuthMode(clientAuthMode === 'signin' ? 'signup' : 'signin')}
+                            className="w-full text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-900"
+                        >
+                            {clientAuthMode === 'signin' ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
+                        </button>
+                    </div>
+
+                    <div className="relative py-4">
+                        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-200"></div></div>
+                        <div className="relative flex justify-center text-[10px] uppercase font-black tracking-widest"><span className="bg-white px-2 text-gray-400">Or Developer Access</span></div>
+                    </div>
+
+                    <button 
+                        type="button"
+                        onClick={handleDevClientLogin}
+                        className="w-full p-4 border-2 border-dashed border-gray-200 rounded-2xl font-black text-xs text-gray-400 hover:border-brand-primary hover:text-brand-primary transition-all"
+                    >
+                        LOGIN AS SAMPLE CLIENT
+                    </button>
+                </form>
             )}
-            
-            <button onClick={clearSupabaseConfig} className="w-full text-center mt-10 text-[9px] font-black text-gray-300 uppercase tracking-widest hover:text-brand-accent transition-colors">
-                Reset System Config
-            </button>
         </div>
+      </div>
+
+      <div className="mt-8 flex flex-col items-center space-y-4">
+        <button 
+            onClick={handleSquareLogin}
+            className="flex items-center space-x-3 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full border border-white/20 text-white font-black text-xs uppercase tracking-widest hover:bg-white/20 transition-all"
+        >
+            <RefreshIcon className="w-4 h-4" />
+            <span>Sync via Square</span>
+        </button>
+        <button 
+            onClick={clearSupabaseConfig}
+            className="text-white/40 text-[10px] font-black uppercase tracking-widest hover:text-white transition-colors"
+        >
+            Reset Database Configuration
+        </button>
       </div>
     </div>
   );
