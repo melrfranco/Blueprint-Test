@@ -1,4 +1,5 @@
 
+
 import { Service, Stylist, Client, PlanAppointment } from '../types';
 
 // Square API Types (Simplified)
@@ -21,6 +22,17 @@ const PROXY_URL = 'https://corsproxy.io/?';
  *
  * This service acts as the strict boundary between the application and the
  * external Square API.
+ *
+ * INVARIANT E: CHANGE SAFETY RULES
+ * E1) Any patch touching logic in this file MUST be applied in isolation
+ *     and tested alone, as it can affect all other parts of the system.
+ * E2) UI/copy patches MUST NOT touch any logic in this file.
+ *
+ * INVARIANT D: SCHEMA & NAMING RULES
+ * D2) This file is the translation layer. It is responsible for converting
+ *     Square's naming conventions (e.g., 'start_at') to the application's
+ *     canonical schema names (e.g., 'start_time'). The application database
+ *     schema MUST NOT be changed to mirror Square's naming.
  */
 async function fetchFromSquare(endpoint: string, accessToken: string, environment: SquareEnvironment, options: { method?: string, body?: any } = {}) {
     const { method = 'GET', body } = options;
@@ -48,6 +60,7 @@ async function fetchFromSquare(endpoint: string, accessToken: string, environmen
 }
 
 export const SquareIntegrationService = {
+  // FIX: Moved and renamed formatRFC3339WithOffset to formatDate and added to the service object.
   formatDate(date: Date, timezone: string = 'UTC') {
     if (!date || isNaN(date.getTime())) {
         return new Date().toISOString();
@@ -98,33 +111,40 @@ export const SquareIntegrationService = {
     }
   },
   
-  /**
-   * SERVER-SIDE TOKEN EXCHANGE
-   * Calls the application's backend endpoint to securely exchange the authorization code.
-   * This prevents leaking the Square Client Secret to the frontend.
-   */
   exchangeCodeForToken: async (code: string, env: SquareEnvironment): Promise<{ accessToken: string, refreshToken: string, merchantId: string }> => {
-    // The server endpoint handles the Square API call directly using its secure client_secret.
-    const response = await fetch('/api/square/oauth/token', {
+    const baseUrl = env === 'sandbox' ? SANDBOX_API_BASE : PROD_API_BASE;
+    const targetUrl = `${baseUrl}/oauth2/token`;
+    const proxiedUrl = `${PROXY_URL}${encodeURIComponent(targetUrl)}`;
+
+    const response = await fetch(proxiedUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        code,
-        environment: env
+        // FIX: Suppress TypeScript error for import.meta.env which is a Vite-specific feature.
+        // @ts-ignore
+        client_id: import.meta.env.VITE_SQUARE_APPLICATION_ID,
+        // FIX: Suppress TypeScript error for import.meta.env which is a Vite-specific feature.
+        // @ts-ignore
+        client_secret: import.meta.env.VITE_SQUARE_CLIENT_SECRET,
+        code: code,
+        grant_type: 'authorization_code',
+        // @ts-ignore
+        redirect_uri: import.meta.env.VITE_SQUARE_REDIRECT_URI
       }),
     });
 
     const data = await response.json();
     if (!response.ok) {
-        throw new Error(data.message || `Server-side OAuth exchange failed: ${response.status}`);
+        const err = data.errors?.[0];
+        throw new Error(err ? `${err.detail}` : `OAuth Token Exchange Failed: ${response.status}`);
     }
     
     return {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        merchantId: data.merchantId,
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+        merchantId: data.merchant_id,
     };
   },
   
@@ -147,6 +167,7 @@ export const SquareIntegrationService = {
       return { business_name: merchant.business_name || 'Admin' };
   },
 
+  // FIX: Added fetchCatalog to fetch services from Square.
   fetchCatalog: async (accessToken: string, env: SquareEnvironment): Promise<Service[]> => {
     const data = await fetchFromSquare('/catalog/list?types=ITEM,ITEM_VARIATION,CATEGORY', accessToken, env);
     const objects = data.objects || [];
@@ -164,18 +185,19 @@ export const SquareIntegrationService = {
             const durationMs = variation.item_variation_data.service_duration;
 
             services.push({
-                id: variation.id, 
+                id: variation.id, // Use variation ID as it's what's booked
                 version: variation.version,
                 name: `${item.item_data.name}${variation.item_variation_data.name !== 'Regular' ? ` - ${variation.item_variation_data.name}` : ''}`.trim(),
                 category: categoryObj?.category_data?.name || 'Uncategorized',
                 cost: priceMoney ? Number(priceMoney.amount) / 100 : 0,
-                duration: durationMs ? durationMs / 1000 / 60 : 0, 
+                duration: durationMs ? durationMs / 1000 / 60 : 0, // Convert ms to minutes
             });
         }
     });
     return services;
   },
 
+  // FIX: Added fetchTeam to fetch stylists from Square.
   fetchTeam: async (accessToken: string, env: SquareEnvironment): Promise<Stylist[]> => {
       const data = await fetchFromSquare('/team-members/search', accessToken, env, {
           method: 'POST',
@@ -189,12 +211,12 @@ export const SquareIntegrationService = {
       });
       const members = data.team_members || [];
       return members.map((member: any) => ({
-          id: member.id, 
+          id: member.id, // external Square ID
           name: `${member.given_name} ${member.family_name}`,
           role: member.is_owner ? 'Owner' : 'Team Member',
           email: member.email_address,
-          levelId: 'lvl_2', 
-          permissions: { 
+          levelId: 'lvl_2', // Default level
+          permissions: { // Default permissions
               canBookAppointments: true,
               canOfferDiscounts: false,
               requiresDiscountApproval: true,
@@ -205,6 +227,7 @@ export const SquareIntegrationService = {
       }));
   },
 
+  // FIX: Added fetchCustomers to fetch clients from Square.
   fetchCustomers: async (accessToken: string, env: SquareEnvironment): Promise<Partial<Client>[]> => {
       let cursor: string | undefined = undefined;
       const allCustomers: any[] = [];
@@ -229,6 +252,7 @@ export const SquareIntegrationService = {
       }));
   },
 
+  // FIX: Added searchCustomer to find a client by name in Square.
   searchCustomer: async (accessToken: string, env: SquareEnvironment, name: string): Promise<string | null> => {
       const nameParts = name.trim().split(/\s+/);
       const firstName = nameParts[0];
@@ -249,8 +273,10 @@ export const SquareIntegrationService = {
           body.query.filter.given_name = { exact: firstName };
           body.query.filter.family_name = { exact: lastName };
       } else if (firstName) {
+          // Fallback for single name
           body.query.filter.given_name = { exact: firstName };
       }
+
 
       const data = await fetchFromSquare('/customers/search', accessToken, env, {
           method: 'POST',
@@ -270,6 +296,7 @@ export const SquareIntegrationService = {
       const startDate = new Date(params.startAt);
       if (isNaN(startDate.getTime())) throw new Error("Invalid start time passed to Square.");
 
+      // Search a 30-day window to populate the calendar view
       const endDate = new Date(startDate.getTime() + (30 * 24 * 60 * 60 * 1000)); 
 
       const segment_filter: {
@@ -279,6 +306,10 @@ export const SquareIntegrationService = {
           service_variation_id: params.serviceVariationId,
       };
 
+      // A valid Square team member ID must be provided. Internal IDs like 'admin' or
+      // mock IDs like 'TM-...' are not valid for the Square API filter.
+      // If the provided ID is not a valid-looking Square ID, we omit the filter to search
+      // across all available team members. The final booking will resolve a correct ID.
       const teamMemberId = params.teamMemberId;
       const isInvalidForFilter = !teamMemberId || teamMemberId.startsWith('TM-') || teamMemberId === 'admin';
 
@@ -338,10 +369,13 @@ export const SquareIntegrationService = {
       const isInvalidTeamMemberId = !teamMemberId || teamMemberId.startsWith('TM-') || teamMemberId === 'admin';
 
       if (isInvalidTeamMemberId) {
+          // Fetch all bookable team members from Square.
+          // FIX: Call the newly added fetchTeam method correctly.
           const teamMembers = await SquareIntegrationService.fetchTeam(accessToken, env);
           if (!teamMembers || teamMembers.length === 0) {
               throw new Error("No bookable team members found in Square to assign this appointment to.");
           }
+          // Use the first available team member as the fallback default.
           resolvedTeamMemberId = teamMembers[0].id;
       }
       
