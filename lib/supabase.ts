@@ -1,11 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-// IMPORTANT:
-// Do NOT throw at build time.
-// Vite injects env vars at runtime in the browser.
-
-const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL ?? '';
-const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY ?? '';
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
 let supabaseClient: ReturnType<typeof createClient> | null = null;
 
@@ -14,13 +10,13 @@ if (supabaseUrl && supabaseAnonKey) {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true, // REQUIRED for OAuth redirects
+      detectSessionInUrl: false, // Square OAuth is removed.
     },
   });
 } else {
+  // The MissingCredentialsScreen handles this, so a console warn is sufficient.
   console.warn(
-    '[Supabase] Missing env vars at runtime:',
-    { supabaseUrl, supabaseAnonKey }
+    'Supabase environment variables are missing. App will show configuration error screen.'
   );
 }
 

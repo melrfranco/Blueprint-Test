@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import type { Client, GeneratedPlan, UserRole, PlanAppointment } from '../types';
 import PlanSummaryStep from './PlanSummaryStep';
@@ -50,12 +51,13 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client: propClient, p
       }
       
       const fetchedClient: Client = {
-          id: clientRow.id,
-          externalId: clientRow.external_id,
-          name: clientRow.name,
-          email: clientRow.email,
-          phone: clientRow.phone,
-          avatarUrl: clientRow.avatar_url,
+          // FIX: Cast `clientRow` to `any` to resolve Supabase type inference issues.
+          id: (clientRow as any).id,
+          externalId: (clientRow as any).external_id,
+          name: (clientRow as any).name,
+          email: (clientRow as any).email,
+          phone: (clientRow as any).phone,
+          avatarUrl: (clientRow as any).avatar_url,
           historicalData: []
       };
       setRealClient(fetchedClient);
@@ -63,7 +65,8 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client: propClient, p
       const { data: plansData, error: plansError } = await supabase
         .from("plans")
         .select("*")
-        .eq("client_id", clientRow.id)
+        // FIX: Cast `clientRow` to `any` to access `id` property.
+        .eq("client_id", (clientRow as any).id)
         .order("created_at", { ascending: false });
 
       if (plansError) {
@@ -73,6 +76,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client: propClient, p
 
       if (plansData) {
         const formattedPlans = plansData
+            // FIX: Add type `any` to `dbPlan` to resolve Supabase type inference issues.
             .map((dbPlan: any) => {
                 const blob = dbPlan.plan_data;
                 if (!blob || !blob.client) return null;
@@ -117,12 +121,13 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client: propClient, p
 
       // 2. If a plan is found, format it and set it as the ONLY plan to be displayed.
       if (latestPlan) {
-        const blob = latestPlan.plan_data;
+        // FIX: Cast `latestPlan` to `any` to resolve Supabase type inference issues.
+        const blob = (latestPlan as any).plan_data;
         if (blob && blob.client) {
             const formattedPlan: GeneratedPlan = {
                 ...blob,
-                id: latestPlan.id,
-                createdAt: blob.createdAt || latestPlan.created_at,
+                id: (latestPlan as any).id,
+                createdAt: blob.createdAt || (latestPlan as any).created_at,
                 appointments: (blob.appointments || []).map((a: any) => ({
                     ...a,
                     date: new Date(a.date)
@@ -267,7 +272,7 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ client: propClient, p
       
       const upcoming = allItems
           .filter(a => new Date(a.date) >= today)
-          .sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+          .sort((a,b) => new Date(a.date).getTime() - new Date(a.date).getTime());
           
       const past = allItems
           .filter(a => new Date(a.date) < today)

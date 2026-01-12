@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { AreaChart, Area, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import BottomNav from './BottomNav';
@@ -163,7 +164,8 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
                 duration: s.duration,
                 metadata: { version: s.version }
             }));
-            const { error: se } = await supabase.from('services').upsert(servicePayload, { onConflict: 'id' });
+            // FIX: Cast servicePayload to 'any' to resolve Supabase type inference issue.
+            const { error: se } = await supabase.from('services').upsert(servicePayload as any, { onConflict: 'id' });
             if (se) throw se;
             updateServices(newServices);
           }

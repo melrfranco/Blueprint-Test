@@ -4,7 +4,7 @@ import type { GeneratedPlan, UserRole } from './types';
 import StylistDashboard from './components/StylistDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import LoginScreen from './components/LoginScreen';
-import { areSupabaseCredentialsMissing } from './lib/supabase';
+import { supabase } from './lib/supabase';
 import { isSquareTokenMissing } from './services/squareIntegration';
 import MissingCredentialsScreen from './components/MissingCredentialsScreen';
 import { SettingsProvider } from './contexts/SettingsContext';
@@ -64,7 +64,7 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   // Gate the entire app on the presence of all critical environment variables.
-  const areCredentialsMissing = areSupabaseCredentialsMissing || isSquareTokenMissing;
+  const areCredentialsMissing = supabase === null || isSquareTokenMissing;
   if (areCredentialsMissing) {
     return <MissingCredentialsScreen />;
   }

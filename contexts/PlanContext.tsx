@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { GeneratedPlan, PlanAppointment } from '../types';
 import { supabase } from '../lib/supabase';
@@ -141,7 +142,8 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         const { data, error } = await supabase
             .from('plans')
-            .upsert(payload, { onConflict: 'id' })
+            // FIX: Cast payload to `any` to resolve Supabase type inference issue.
+            .upsert(payload as any, { onConflict: 'id' })
             .select();
 
         if (error) {
@@ -199,16 +201,17 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const saveBooking = async (booking: Omit<BookingRecord, 'id'> & { id?: string }) => {
         if (!supabase) return { data: null, error: new Error("No database connection") };
-        const { data, error } = await supabase.from('bookings').upsert(booking).select().single();
+        // FIX: Cast payload to `any` to resolve Supabase type inference issue.
+        const { data, error } = await supabase.from('bookings').upsert(booking as any).select().single();
         if (!error && data) {
             setBookings(prev => {
-                const index = prev.findIndex(b => b.id === data.id);
+                const index = prev.findIndex(b => b.id === (data as any).id);
                 if (index > -1) {
                     const next = [...prev];
-                    next[index] = data;
+                    next[index] = data as BookingRecord;
                     return next;
                 }
-                return [...prev, data];
+                return [...prev, data as BookingRecord];
             });
         }
         return { data, error };
