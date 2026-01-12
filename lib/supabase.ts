@@ -1,23 +1,28 @@
 import { createClient } from '@supabase/supabase-js';
 
-console.log('DEBUG import.meta.env:', import.meta.env);
-console.log('DEBUG SUPABASE URL:', import.meta.env?.VITE_SUPABASE_URL);
-console.log('DEBUG SUPABASE ANON:', import.meta.env?.VITE_SUPABASE_ANON_KEY);
+// IMPORTANT:
+// Do NOT throw at build time.
+// Vite injects env vars at runtime in the browser.
 
-const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL ?? '';
+const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY ?? '';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Supabase environment variables are missing. ' +
-    'Check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.'
+let supabaseClient: ReturnType<typeof createClient> | null = null;
+
+if (supabaseUrl && supabaseAnonKey) {
+  supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true, // REQUIRED for OAuth redirects
+    },
+  });
+} else {
+  console.warn(
+    '[Supabase] Missing env vars at runtime:',
+    { supabaseUrl, supabaseAnonKey }
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-  },
-});
+// Export nullable client — app must guard against null
+export const supabase = supabaseClient;
