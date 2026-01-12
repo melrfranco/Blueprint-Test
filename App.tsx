@@ -20,20 +20,23 @@ const AppContent: React.FC = () => {
   const { getPlanForClient } = usePlans();
   const { integration, updateIntegration } = useSettings();
 
-  // The 'square_oauth_complete' flag is set in index.tsx before redirect.
-  // We check it here after the app has loaded on the root path.
-  const squareAuthed = sessionStorage.getItem('square_oauth_complete') === 'true';
+  // A user is considered "authenticated" as an admin if a Square token exists.
+  // This state is persisted in localStorage via the SettingsContext and fixes the redirect loop.
+  const isSquareConnected = !!integration.squareAccessToken;
+
+  // This is a transient flag, only true for the single page load after the OAuth redirect.
+  const isPostSquareAuth = sessionStorage.getItem('square_oauth_complete') === 'true';
 
   useEffect(() => {
-    // This effect now runs safely after the redirect, once the main app is mounted.
-    if (squareAuthed) {
-      // BUG FIX: Immediately clear OAuth markers to prevent an infinite loop on refresh.
-      // The code is captured into a local constant for a single, one-time use.
+    // This effect runs only once, immediately after the OAuth redirect, to exchange the
+    // temporary code for a permanent access token.
+    if (isPostSquareAuth) {
+      // BUG FIX: Immediately clear OAuth markers to prevent this block from running again on refresh.
       const code = sessionStorage.getItem('square_oauth_code');
       sessionStorage.removeItem('square_oauth_code');
       sessionStorage.removeItem('square_oauth_complete');
 
-      async function syncSquareCustomers() {
+      async function exchangeCodeAndSyncData() {
         try {
           if (!code) {
             console.warn("Square OAuth sync started, but no auth code was found in session storage.");
@@ -43,7 +46,8 @@ const AppContent: React.FC = () => {
           // 1. Exchange OAuth code for access token
           const tokens = await SquareIntegrationService.exchangeCodeForToken(code, integration.environment || 'production');
           
-          // 2. Update persistent integration settings with the new tokens
+          // 2. Update persistent integration settings with the new tokens.
+          // This state update is critical, as it sets `isSquareConnected` to true for all subsequent renders.
           updateIntegration({
             ...integration,
             squareAccessToken: tokens.accessToken,
@@ -84,24 +88,34 @@ const AppContent: React.FC = () => {
           
         } catch (e) {
           console.error('Failed to sync Square customers:', e);
-          // Keys are already cleared upfront, so no further cleanup is needed on failure.
+          // The session storage flags are cleared upfront, so no further cleanup is needed on failure.
         }
       }
-      syncSquareCustomers();
+      exchangeCodeAndSyncData();
     }
   // This effect should only run once after the initial authentication flow.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [squareAuthed]);
+  }, [isPostSquareAuth]);
 
-  if (!isAuthenticated && !squareAuthed) {
+  // AUTHENTICATION GATE:
+  // The app is gated by the AuthProvider's loading state. Once loaded, this check prevents
+  // a redirect to the login screen if the user has either a Supabase session (isAuthenticated)
+  // or a persisted Square connection (isSquareConnected).
+  if (!isAuthenticated && !isSquareConnected) {
       return <LoginScreen onLogin={login} />;
   }
 
   const renderDashboard = () => {
-    // Square-auth users are treated as ADMIN role if no other user is logged in
-    const effectiveRole = user?.role || (squareAuthed ? 'admin' : null);
+    // ROLE RESOLUTION:
+    // A Supabase user's role takes precedence. If no Supabase user is logged in,
+    // the presence of a Square connection implies an 'admin' role.
+    const effectiveRole = user?.role || (isSquareConnected ? 'admin' : null);
 
-    if (!effectiveRole) return null;
+    if (!effectiveRole) {
+      // This state can occur briefly during logout. Returning null is safe because the
+      // auth gate above will redirect to the login screen if no session is established.
+      return null;
+    }
 
     switch (effectiveRole) {
       case 'stylist':
