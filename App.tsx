@@ -27,10 +27,18 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     // This effect now runs safely after the redirect, once the main app is mounted.
     if (squareAuthed) {
+      // BUG FIX: Immediately clear OAuth markers to prevent an infinite loop on refresh.
+      // The code is captured into a local constant for a single, one-time use.
+      const code = sessionStorage.getItem('square_oauth_code');
+      sessionStorage.removeItem('square_oauth_code');
+      sessionStorage.removeItem('square_oauth_complete');
+
       async function syncSquareCustomers() {
         try {
-          const code = sessionStorage.getItem('square_oauth_code');
-          if (!code) return;
+          if (!code) {
+            console.warn("Square OAuth sync started, but no auth code was found in session storage.");
+            return;
+          }
 
           // 1. Exchange OAuth code for access token
           const tokens = await SquareIntegrationService.exchangeCodeForToken(code, integration.environment || 'production');
@@ -74,15 +82,9 @@ const AppContent: React.FC = () => {
             JSON.stringify(squareCustomers)
           );
           
-          // Clear auth state from sessionStorage now that the process is complete
-          sessionStorage.removeItem('square_oauth_code');
-          sessionStorage.removeItem('square_oauth_complete');
-          
         } catch (e) {
           console.error('Failed to sync Square customers:', e);
-          // Also clear state on failure to prevent re-running a failed flow
-          sessionStorage.removeItem('square_oauth_code');
-          sessionStorage.removeItem('square_oauth_complete');
+          // Keys are already cleared upfront, so no further cleanup is needed on failure.
         }
       }
       syncSquareCustomers();

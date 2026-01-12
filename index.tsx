@@ -16,15 +16,22 @@ if (isSquareCallback) {
   
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
+  const lastProcessedCode = sessionStorage.getItem('last_processed_square_code');
 
-  if (code) {
+  // BUG FIX: Prevent re-processing a stale or duplicate authorization code.
+  if (code && code === lastProcessedCode) {
+    console.warn('[Square OAuth] Duplicate auth code detected. Ignoring and redirecting home.');
+    window.location.replace('/');
+  } else if (code) {
     sessionStorage.setItem('square_oauth_complete', 'true');
     sessionStorage.setItem('square_oauth_code', code);
+    // Mark this code as processed to prevent reuse.
+    sessionStorage.setItem('last_processed_square_code', code);
+    window.location.replace('/');
+  } else {
+    console.error('[Square OAuth] Callback reached without an authorization code.');
+    window.location.replace('/');
   }
-  
-  // Redirect to the main page to complete the flow. This will trigger a full page
-  // load where the `else` block below will execute.
-  window.location.replace('/');
   
 } else {
   // Standard application bootstrap for all other routes.
