@@ -16,9 +16,20 @@ import './styles/accessibility.css';
 import { SquareIntegrationService } from './services/squareIntegration';
 
 const AppContent: React.FC = () => {
-  const { user, login, logout, isAuthenticated } = useAuth();
+  const { user, login, logout, isAuthenticated, authInitialized } = useAuth();
   const { getPlanForClient } = usePlans();
   const { integration, updateIntegration } = useSettings();
+
+  // AUTH INITIALIZATION GATE:
+  // Do not render anything until the auth state has been confirmed. This prevents
+  // a flash of the login screen or a redirect loop on page load.
+  if (!authInitialized) {
+    return (
+        <div className="flex items-center justify-center h-screen">
+            <div className="w-16 h-16 border-4 border-brand-accent border-t-transparent rounded-full animate-spin"></div>
+        </div>
+    );
+  }
 
   // A user is considered "authenticated" as an admin if a Square token exists.
   // This state is persisted in localStorage via the SettingsContext and fixes the redirect loop.

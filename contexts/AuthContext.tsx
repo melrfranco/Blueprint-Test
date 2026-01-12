@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import type { User, UserRole, Stylist, Client } from '../types';
 import { useSettings } from './SettingsContext';
 import { supabase } from '../lib/supabase';
@@ -11,6 +11,7 @@ interface AuthContextType {
     signUpClient: (credentials: {email: string, password: string, options?: { data: any } }) => Promise<any>;
     logout: () => Promise<void>;
     isAuthenticated: boolean;
+    authInitialized: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,18 +19,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [user, setUser] = useState<User | null>(null);
     const { stylists } = useSettings();
-    const [loading, setLoading] = useState(true);
-    const authInitialized = useRef(false);
+    const [authInitialized, setAuthInitialized] = useState(false);
 
     useEffect(() => {
-        if (authInitialized.current) {
-            return;
-        }
         if (!supabase) {
-            setLoading(false);
+            setAuthInitialized(true);
             return;
         }
-        authInitialized.current = true;
 
         const resolveUserFromSession = async (session: any) => {
             const authUser = session?.user;
@@ -98,38 +94,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         };
 
-        // Perform the initial session check, handling AbortError gracefully.
-        (async () => {
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session) {
-                    await resolveUserFromSession(session);
-                } else {
-                    setUser(null);
-                }
-            } catch (error: any) {
-                if (error.name === 'AbortError') {
-                    console.warn('Supabase auth init aborted — safe to ignore. This can happen in development with React Strict Mode.');
-                } else {
-                    console.error('Supabase auth init failed', error);
-                }
-                setUser(null);
-            } finally {
-                // This is the critical fix: always clear the loading state.
-                setLoading(false);
-            }
-        })();
+        let subscribed = true;
 
-        // Listen for subsequent auth state changes.
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (session) {
+        // onAuthStateChange fires an initial event with the session, which fulfills
+        // the requirement of checking the session on load.
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (subscribed) {
                 await resolveUserFromSession(session);
-            } else {
-                setUser(null);
+                setAuthInitialized(true);
             }
         });
 
         return () => {
+            subscribed = false;
             subscription?.unsubscribe();
         };
     }, []);
@@ -203,16 +180,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setUser(null);
     };
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-screen">
-                <div className="w-16 h-16 border-4 border-brand-accent border-t-transparent rounded-full animate-spin"></div>
-            </div>
-        );
-    }
-
     return (
-        <AuthContext.Provider value={{ user, login, signInClient, signUpClient, logout, isAuthenticated: !!user }}>
+        <AuthContext.Provider value={{ user, login, signInClient, signUpClient, logout, isAuthenticated: !!user, authInitialized }}>
             {children}
         </AuthContext.Provider>
     );
