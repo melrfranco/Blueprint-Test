@@ -22,8 +22,8 @@ export default defineConfig(({ mode }) => {
       },
       resolve: {
         alias: {
-          // FIX: Replaced `__dirname` with `process.cwd()` to avoid "Cannot find name '__dirname'" error in modern JS/TS environments.
-          '@': path.resolve(process.cwd(), '.'),
+          // FIX: Replaced `process.cwd()` with `'.'` to avoid "Property 'cwd' does not exist on type 'Process'" error in some TS environments.
+          '@': path.resolve('.'),
         }
       }
     };

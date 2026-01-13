@@ -61,7 +61,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       `&response_type=code` +
       `&scope=${encodeURIComponent(scopes)}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&state=${encodeURIComponent(state)}`;
+      `&state=${encodeURIComponent(state)}` +
+      `&session=true`;
 
     window.location.assign(oauthUrl);
   };

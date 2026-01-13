@@ -54,7 +54,8 @@ export interface Client {
 
 export type Step = 'select-client' | 'select-services' | 'set-dates' | 'set-frequency' | 'loading' | 'summary';
 
-export type UserRole = 'admin' | 'stylist';
+// FIX: Add 'client' to UserRole to resolve type errors in PlanSummaryStep and PlanContext.
+export type UserRole = 'admin' | 'stylist' | 'client';
 
 export type PlanStatus = 'draft' | 'active' | 'paused' | 'cancelled'; 
 
