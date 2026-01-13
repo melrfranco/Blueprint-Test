@@ -1,9 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-// FIX: Replaced `import.meta.env` with `process.env` to resolve TypeScript error.
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-// FIX: Replaced `import.meta.env` with `process.env` to resolve TypeScript error.
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 let supabaseClient: ReturnType<typeof createClient> | null = null;
 
