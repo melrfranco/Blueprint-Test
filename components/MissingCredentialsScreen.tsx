@@ -16,9 +16,9 @@ const MissingCredentialsScreen: React.FC = () => {
         </p>
         <div className="mt-6 text-left bg-red-50 p-4 rounded-xl border border-red-200">
             <p className="text-xs font-bold text-red-600 uppercase mb-2">Required Variables:</p>
-            <code className="block text-sm font-mono text-red-900 bg-red-100 p-2 rounded">SUPABASE_URL</code>
-            <code className="block text-sm font-mono text-red-900 bg-red-100 p-2 rounded mt-2">SUPABASE_ANON_KEY</code>
-            <code className="block text-sm font-mono text-red-900 bg-red-100 p-2 rounded mt-2">SQUARE_ACCESS_TOKEN</code>
+            <code className="block text-sm font-mono text-red-900 bg-red-100 p-2 rounded">VITE_SUPABASE_URL</code>
+            <code className="block text-sm font-mono text-red-900 bg-red-100 p-2 rounded mt-2">VITE_SUPABASE_ANON_KEY</code>
+            <code className="block text-sm font-mono text-red-900 bg-red-100 p-2 rounded mt-2">VITE_SQUARE_ACCESS_TOKEN</code>
         </div>
         <p className="text-xs text-red-600 mt-4">
             Please provide these variables in your hosting environment to continue.

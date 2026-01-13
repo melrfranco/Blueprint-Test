@@ -278,13 +278,14 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             throw new Error("Client creation failed: no data returned.");
         }
 
+        // FIX: Cast `data` to `any` to resolve Supabase type inference issues.
         const newClient: Client = {
-            id: data.id,
-            externalId: data.external_id,
-            name: data.name,
-            email: data.email,
-            phone: data.phone,
-            avatarUrl: data.avatar_url,
+            id: (data as any).id,
+            externalId: (data as any).external_id,
+            name: (data as any).name,
+            email: (data as any).email,
+            phone: (data as any).phone,
+            avatarUrl: (data as any).avatar_url,
             historicalData: []
         };
         
@@ -348,13 +349,14 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             throw new Error("Client creation failed: no data returned.");
         }
 
+        // FIX: Cast `newDbClient` to `any` to resolve Supabase type inference issues.
         const newClient: Client = {
-            id: newDbClient.id,
-            externalId: newDbClient.external_id,
-            name: newDbClient.name,
-            email: newDbClient.email,
-            phone: newDbClient.phone,
-            avatarUrl: newDbClient.avatar_url,
+            id: (newDbClient as any).id,
+            externalId: (newDbClient as any).external_id,
+            name: (newDbClient as any).name,
+            email: (newDbClient as any).email,
+            phone: (newDbClient as any).phone,
+            avatarUrl: (newDbClient as any).avatar_url,
             historicalData: []
         };
         

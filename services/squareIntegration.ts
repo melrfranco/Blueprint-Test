@@ -9,13 +9,17 @@ interface SquareLocation {
     status: string;
 }
 
-const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
+// FIX: Replaced `import.meta.env` with `process.env` to resolve TypeScript error.
+const SQUARE_ACCESS_TOKEN = process.env.VITE_SQUARE_ACCESS_TOKEN;
 
-if (!SQUARE_ACCESS_TOKEN) {
-  console.error('Missing Square access token');
+export const isSquareTokenMissing = !SQUARE_ACCESS_TOKEN;
+
+if (isSquareTokenMissing) {
+  console.warn('VITE_SQUARE_ACCESS_TOKEN is missing. App will show configuration error screen.');
 }
 
-const SQUARE_ENV = process.env.SQUARE_ENV || 'production';
+// FIX: Replaced `import.meta.env` with `process.env` to resolve TypeScript error.
+const SQUARE_ENV = process.env.VITE_SQUARE_ENV || 'production';
 
 const baseUrl = SQUARE_ENV === 'sandbox'
     ? 'https://connect.squareupsandbox.com'
@@ -25,7 +29,7 @@ async function squareApiFetch<T>(path: string, options: { method?: string, body?
     const { method = 'GET', body } = options;
     
     if (!SQUARE_ACCESS_TOKEN) {
-        throw new Error('Square Access Token is not configured. Check SQUARE_ACCESS_TOKEN.');
+        throw new Error('Square Access Token is not configured. Check VITE_SQUARE_ACCESS_TOKEN.');
     }
     
     const response = await fetch(`${baseUrl}${path}`, {

@@ -161,14 +161,15 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // We will try to normalize the data for the UI, but if it fails,
         // we'll log a warning and return the raw data, which the UI can handle.
         try {
-            const blob = dbRow.plan_data;
+            // FIX: Cast `dbRow` to `any` to resolve Supabase type inference issues for `plan_data` and `id`.
+            const blob = (dbRow as any).plan_data;
             if (!blob || typeof blob !== 'object' || !blob.client) {
                 throw new Error("plan_data from DB is missing or not an object.");
             }
 
             const formattedPlan: GeneratedPlan = {
                 ...blob,
-                id: dbRow.id,
+                id: (dbRow as any).id,
                 appointments: (blob.appointments || []).map((a: any) => ({
                     ...a,
                     date: new Date(a.date)
@@ -189,7 +190,8 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } catch (e: any) {
             console.warn(
                 "CRITICAL: Plan was saved to DB, but failed to parse for UI update. " +
-                `Plan ID: ${dbRow.id}. Error: ${e.message}. ` +
+                // FIX: Cast `dbRow` to `any` to resolve Supabase type inference issue.
+                `Plan ID: ${(dbRow as any).id}. Error: ${e.message}. ` +
                 "The app will proceed, but this plan may not display correctly until app refresh."
             );
             // Per instructions, return the raw database row on failure.
