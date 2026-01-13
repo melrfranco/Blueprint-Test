@@ -9,7 +9,7 @@ interface SquareLocation {
     status: string;
 }
 
-const SQUARE_ACCESS_TOKEN = import.meta.env.VITE_SQUARE_ACCESS_TOKEN;
+const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
 
 if (!SQUARE_ACCESS_TOKEN) {
   console.error('Missing Square access token');
@@ -25,7 +25,7 @@ async function squareApiFetch<T>(path: string, options: { method?: string, body?
     const { method = 'GET', body } = options;
     
     if (!SQUARE_ACCESS_TOKEN) {
-        throw new Error('Square Access Token is not configured. Check VITE_SQUARE_ACCESS_TOKEN.');
+        throw new Error('Square Access Token is not configured. Check SQUARE_ACCESS_TOKEN.');
     }
     
     const response = await fetch(`${baseUrl}${path}`, {
