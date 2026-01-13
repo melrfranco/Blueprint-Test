@@ -1,6 +1,7 @@
 
+
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import type { User, UserRole, Stylist, Client } from '../types';
+import type { User, UserRole, Stylist } from '../types';
 import { useSettings } from './SettingsContext';
 import { supabase } from '../lib/supabase';
 

@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { HomeIcon, UsersIcon, CalendarIcon, DocumentTextIcon, SettingsIcon, CheckCircleIcon, PlusIcon, ClipboardIcon } from './icons';
 import type { UserRole } from '../types';
@@ -23,13 +24,6 @@ const BottomNav: React.FC<BottomNavProps> = ({ role, activeTab, onNavigate }) =>
     { name: 'Account', icon: SettingsIcon, key: 'account' },
   ];
   
-  const clientNav = [
-    { name: 'My Blueprint', icon: DocumentTextIcon, key: 'plan' },
-    { name: 'Appointments', icon: CalendarIcon, key: 'appointments' },
-    { name: 'Memberships', icon: CheckCircleIcon, key: 'memberships' },
-    { name: 'Account', icon: SettingsIcon, key: 'account' },
-  ];
-
   const adminNav = [
       { name: 'Dashboard', icon: HomeIcon, key: 'dashboard' },
       { name: 'Plans', icon: DocumentTextIcon, key: 'plans' },
@@ -40,9 +34,6 @@ const BottomNav: React.FC<BottomNavProps> = ({ role, activeTab, onNavigate }) =>
   switch(role) {
       case 'stylist':
           navItems = stylistNav;
-          break;
-      case 'client':
-          navItems = clientNav;
           break;
       case 'admin':
           navItems = adminNav;

@@ -1,5 +1,6 @@
 
 
+
 import React from 'react';
 import type { GeneratedPlan, UserRole } from './types';
 import StylistDashboard from './components/StylistDashboard';
@@ -44,9 +45,6 @@ const AppContent: React.FC = () => {
         return <StylistDashboard 
                   onLogout={logout} 
                />;
-      // Client dashboard is disabled in this stabilization patch.
-      case 'client':
-        return <LoginScreen onLogin={login} />; // Fallback to login
       case 'admin':
         return <AdminDashboard role="admin" />;
       default:

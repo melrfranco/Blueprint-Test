@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
 
 let supabaseClient: ReturnType<typeof createClient> | null = null;
 
@@ -22,3 +22,18 @@ if (supabaseUrl && supabaseAnonKey) {
 
 // Export nullable client — app must guard against null
 export const supabase = supabaseClient;
+
+
+/**
+ * Clears all Supabase-related keys from localStorage to reset the session,
+ * then reloads the page.
+ */
+export function clearSupabaseConfig() {
+  Object.keys(localStorage).forEach(key => {
+    if (key.startsWith('sb-')) {
+      localStorage.removeItem(key);
+    }
+  });
+  alert('Supabase configuration has been cleared. The application will now reload.');
+  window.location.reload();
+}

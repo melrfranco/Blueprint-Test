@@ -1,4 +1,5 @@
 
+
 export interface Service {
   id: string;
   version?: number;
@@ -53,11 +54,12 @@ export interface Client {
 
 export type Step = 'select-client' | 'select-services' | 'set-dates' | 'set-frequency' | 'loading' | 'summary';
 
-export type UserRole = 'admin' | 'stylist' | 'client';
+export type UserRole = 'admin' | 'stylist';
 
-export type PlanStatus = 'draft' | 'active' | 'pending_approval'; 
+export type PlanStatus = 'draft' | 'active' | 'paused' | 'cancelled'; 
 
-export type MembershipStatus = 'none' | 'offered' | 'active';
+// FIX: Added 'none' and 'offered' to MembershipStatus to align with its usage in the application.
+export type MembershipStatus = 'active' | 'paused' | 'cancelled' | 'inactive' | 'none' | 'offered';
 
 export type AppTextSize = 'S' | 'M' | 'L';
 
