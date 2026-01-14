@@ -2,7 +2,6 @@ import React, { useEffect } from 'react';
 import type { GeneratedPlan, UserRole } from './types';
 import StylistDashboard from './components/StylistDashboard';
 import AdminDashboard from './components/AdminDashboard';
-import LoginScreen from './components/LoginScreen';
 import { supabase } from './lib/supabase';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -12,7 +11,13 @@ import MissingCredentialsScreen from './components/MissingCredentialsScreen';
 import { isSquareTokenMissing } from './services/squareIntegration';
 
 const AppContent: React.FC = () => {
-  const { user, login, logout, isAuthenticated, authInitialized } = useAuth();
+  // 🔒 ABSOLUTE GATE: Square OAuth is REQUIRED to access the app.
+  // This is the first check before any other component logic.
+  if (isSquareTokenMissing) {
+    return <MissingCredentialsScreen />;
+  }
+  
+  const { user, logout, authInitialized } = useAuth();
 
   // Square OAuth completion (code stored by /square-callback)
   useEffect(() => {
@@ -43,11 +48,6 @@ const AppContent: React.FC = () => {
     })();
   }, []);
 
-  // 🔒 HARD GATE: Square OAuth is the login
-  if (isSquareTokenMissing) {
-    return <MissingCredentialsScreen />;
-  }
-
   // AUTH INITIALIZATION GATE:
   // Do not render anything until the auth state has been confirmed. This prevents
   // a flash of the login screen or a redirect loop on page load.
@@ -59,11 +59,10 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Authentication is now exclusively handled by mock logins.
-  if (!isAuthenticated) {
-      return <LoginScreen onLogin={login} />;
-  }
-
+  // Internal login screen has been removed per patch request.
+  // App now relies on AuthProvider to set a user (e.g., from a session for admins).
+  // If no user is set, a blank screen will render.
+  
   const renderDashboard = () => {
     const effectiveRole = user?.role;
 
@@ -94,20 +93,19 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   // Gate the entire app on the presence of critical environment variables.
-  // Square token is now optional on boot to prevent OAuth loops.
   const areCredentialsMissing = supabase === null;
-  if (areCredentialsMissing) {
-    return <MissingCredentialsScreen />;
-  }
-  
-  // The app now relies exclusively on build-time environment variables.
+
   return (
     <SettingsProvider>
+      {areCredentialsMissing ? (
+        <MissingCredentialsScreen />
+      ) : (
         <AuthProvider>
-            <PlanProvider>
-                <AppContent />
-            </PlanProvider>
+          <PlanProvider>
+            <AppContent />
+          </PlanProvider>
         </AuthProvider>
+      )}
     </SettingsProvider>
   );
 };
