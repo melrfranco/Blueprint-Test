@@ -9,26 +9,22 @@ interface SquareLocation {
     status: string;
 }
 
-const SQUARE_ACCESS_TOKEN = process.env.VITE_SQUARE_ACCESS_TOKEN;
 const TOKEN_STORAGE_KEY = 'square_access_token';
 
 const getSquareAccessToken = () => {
   try {
     if (typeof window !== 'undefined') {
       const stored = window.localStorage.getItem(TOKEN_STORAGE_KEY);
-      if (stored) return stored;
+      if (stored && stored.length > 10) return stored;
     }
   } catch {
     // ignore
   }
-  return SQUARE_ACCESS_TOKEN;
+  return null;
 };
 
+// OAuth is now the ONLY valid auth mechanism
 export const isSquareTokenMissing = !getSquareAccessToken();
-
-if (isSquareTokenMissing) {
-  console.warn('VITE_SQUARE_ACCESS_TOKEN is missing, and no OAuth token is present. App will show configuration error screen.');
-}
 
 const SQUARE_ENV = process.env.VITE_SQUARE_ENV || 'production';
 
@@ -41,7 +37,7 @@ async function squareApiFetch<T>(path: string, options: { method?: string, body?
     
     const token = getSquareAccessToken();
     if (!token) {
-        throw new Error('Square Access Token is not configured. Check VITE_SQUARE_ACCESS_TOKEN or connect via Square OAuth.');
+        throw new Error('Square OAuth token missing. User must authenticate with Square.');
     }
     
     const response = await fetch(`${baseUrl}${path}`, {
