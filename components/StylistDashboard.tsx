@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import type { Step, Service, PlanDetails, GeneratedPlan, PlanAppointment, Client, UserRole } from '../types';
@@ -27,10 +28,9 @@ interface StylistDashboardProps {
     onPlanChange?: (plan: GeneratedPlan | null) => void;
     role?: UserRole;
     initialStep?: Step;
-    onNavigate: (view: string) => void;
 }
 
-const StylistDashboard: React.FC<StylistDashboardProps> = ({ onLogout, role: propRole, existingPlan: propPlan, client: propClient, initialStep, onNavigate }) => {
+const StylistDashboard: React.FC<StylistDashboardProps> = ({ onLogout, role: propRole, existingPlan: propPlan, client: propClient, initialStep }) => {
   const [activeTab, setActiveTab] = useState(initialStep ? 'plans' : 'home');
   const [_step, _setStep] = useState<Step | 'idle'>('idle');
   const [wizardCompleted, setWizardCompleted] = useState(false);
@@ -465,6 +465,8 @@ const StylistDashboard: React.FC<StylistDashboardProps> = ({ onLogout, role: pro
                     <button onClick={() => setStep('select-client')} className="font-black py-5 px-10 rounded-2xl border-b-4 border-black/20 shadow-xl active:scale-95 transition-all" style={startHereButtonStyle}>START HERE</button>
                  </div>
               );
+          case 'settings':
+            return <AdminDashboard role="admin" />;
           case 'account': 
             return <AccountSettings user={user} onLogout={onLogout} subtitle={user?.stylistData?.role || 'Stylist'} />;
           default: return <div>Unknown Tab</div>;
@@ -477,18 +479,14 @@ const StylistDashboard: React.FC<StylistDashboardProps> = ({ onLogout, role: pro
             {renderContent()}
         </div>
         <BottomNav role={propRole || 'stylist'} activeTab={activeTab} onNavigate={(tab) => {
-            if (tab === 'settings') {
-                onNavigate('settings');
-            } else {
-                setActiveTab(tab);
-                if (tab !== 'plans') {
-                    setActiveClient(null);
-                    resetWizard();
-                } else if (_step !== 'idle') {
-                    // If they re-click "Plans" while in a wizard, reset it.
-                    setActiveClient(null);
-                    resetWizard();
-                }
+            setActiveTab(tab);
+            if (tab !== 'plans') {
+                setActiveClient(null);
+                resetWizard();
+            } else if (_step !== 'idle') {
+                // If they re-click "Plans" while in a wizard, reset it.
+                setActiveClient(null);
+                resetWizard();
             }
         }} />
       </div>

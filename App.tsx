@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import type { GeneratedPlan, UserRole } from './types';
 import StylistDashboard from './components/StylistDashboard';
 import AdminDashboard from './components/AdminDashboard';
@@ -10,12 +9,9 @@ import { PlanProvider } from './contexts/PlanContext';
 import './styles/accessibility.css';
 import MissingCredentialsScreen from './components/MissingCredentialsScreen';
 import { isSquareTokenMissing } from './services/squareIntegration';
-import SettingsPage from './components/SettingsPage';
-import BottomNav from './components/BottomNav';
 
 const AppContent: React.FC = () => {
   const { user, logout, authInitialized } = useAuth();
-  const [view, setView] = useState('dashboard');
 
   // AUTH INITIALIZATION GATE:
   // Do not render anything until the auth state has been confirmed. This prevents
@@ -28,39 +24,18 @@ const AppContent: React.FC = () => {
     );
   }
 
-  const renderCurrentView = () => {
+  const renderDashboard = () => {
+    // By defaulting to 'stylist', the app shell renders correctly even when
+    // no user is present (e.g., immediately after OAuth), restoring navigation.
     const effectiveRole: UserRole = user?.role || 'stylist';
-    
-    if (view === 'settings') {
-      return (
-        <SettingsProvider>
-          <div className="flex flex-col h-full bg-brand-bg">
-            <div className="flex-grow flex flex-col pb-20 overflow-hidden">
-              <SettingsPage />
-            </div>
-            <BottomNav
-              role={effectiveRole}
-              activeTab="settings"
-              onNavigate={(tab) => {
-                if (tab !== 'settings') {
-                  setView('dashboard');
-                }
-              }}
-            />
-          </div>
-        </SettingsProvider>
-      );
-    }
-    
-    // Default to the user's role-specific dashboard.
+
     switch (effectiveRole) {
       case 'stylist':
         return <StylistDashboard 
                   onLogout={logout} 
-                  onNavigate={setView}
                />;
       case 'admin':
-        return <AdminDashboard role="admin" onNavigate={setView} />;
+        return <AdminDashboard role="admin" />;
       default:
         return <div>Unknown role</div>;
     }
@@ -69,7 +44,7 @@ const AppContent: React.FC = () => {
   return (
     <div className="bg-brand-bg min-h-screen">
       <div className="max-w-md mx-auto bg-white shadow-lg min-h-screen relative pb-12">
-        {renderCurrentView()}
+        {renderDashboard()}
       </div>
     </div>
   );

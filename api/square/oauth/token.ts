@@ -53,16 +53,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }),
     });
 
-    const data = await resp.json();
+    const tokenData = await resp.json();
 
     if (!resp.ok) {
       return res.status(resp.status).json({
-        message: data?.error_description || data?.error || 'Square token exchange failed.',
-        details: data,
+        message: tokenData?.error_description || tokenData?.error || 'Square token exchange failed.',
+        details: tokenData,
       });
     }
+    
+    const { access_token, merchant_id } = tokenData;
+    if (!access_token || !merchant_id) {
+      return res.status(500).json({ message: 'Square response missing access_token or merchant_id.' });
+    }
 
-    return res.status(200).json(data);
+    const merchantUrl = env === 'sandbox' ? `https://connect.squareupsandbox.com/v2/merchants/${merchant_id}` : `https://connect.squareup.com/v2/merchants/${merchant_id}`;
+
+    let business_name = 'Admin';
+    try {
+        const merchantResp = await fetch(merchantUrl, {
+            headers: {
+                'Authorization': `Bearer ${access_token}`,
+                'Accept': 'application/json',
+            },
+        });
+
+        if (merchantResp.ok) {
+            const merchantData = await merchantResp.json();
+            business_name = merchantData?.merchant?.business_name || business_name;
+        }
+    } catch (e) {
+        console.error("Could not fetch merchant business name, proceeding with default.", e);
+    }
+    
+    // Construct a unique, non-public email for the Supabase user
+    const email = `${merchant_id}@square-oauth.blueprint`;
+
+    return res.status(200).json({
+      ...tokenData,
+      email,
+      business_name,
+      merchant_id,
+    });
+
   } catch (e: any) {
     return res.status(500).json({ message: e?.message || 'Square token exchange failed.' });
   }
