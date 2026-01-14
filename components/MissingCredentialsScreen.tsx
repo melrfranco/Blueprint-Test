@@ -1,10 +1,6 @@
 import React from 'react';
-import { ensureAccessibleColor } from '../utils/ensureAccessibleColor';
-import { useSettings } from '../contexts/SettingsContext';
 
 const MissingCredentialsScreen = () => {
-  const { branding } = useSettings();
-
   // FIX: Use process.env to align with vite.config.ts define block and resolve TypeScript errors.
   const squareAppId =
     process.env.VITE_SQUARE_APPLICATION_ID ||
@@ -39,11 +35,10 @@ const MissingCredentialsScreen = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6 font-sans">
       <div className="bg-white p-10 rounded-[40px] border-4 border-gray-950 shadow-2xl text-center max-w-sm w-full">
         <h1
           className="text-2xl font-black tracking-tighter mb-4"
-          style={{ color: ensureAccessibleColor(branding.accentColor, '#FFFFFF', '#1E3A8A') }}
         >
           Sign in with Square
         </h1>
@@ -56,9 +51,6 @@ const MissingCredentialsScreen = () => {
         >
           Continue with Square
         </button>
-        <div className="mt-4 text-[10px] font-mono text-gray-500 break-all">
-          <strong>Scopes:</strong> {scopes}
-        </div>
       </div>
     </div>
   );
