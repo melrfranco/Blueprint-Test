@@ -24,16 +24,14 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Internal login screen has been removed per patch request.
-  // App now relies on AuthProvider to set a user (e.g., from a session for admins).
-  // If no user is set, a blank screen will render.
-  
   const renderDashboard = () => {
-    const effectiveRole = user?.role;
-
-    if (!effectiveRole) {
-      return null;
+    // ✅ OAuth-only mode: allow app to render without internal user.
+    // User context may be populated later (or not required).
+    if (!user) {
+      return <StylistDashboard onLogout={logout} />;
     }
+
+    const effectiveRole = user.role;
 
     switch (effectiveRole) {
       case 'stylist':
