@@ -119,7 +119,7 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
   }
 
   const handleSync = async () => {
-      if (!supabase) { setSyncError("Database connection not ready."); return; }
+      if (!supabase || !user) { setSyncError("Database connection not ready or user not authenticated."); return; }
       
       setIsSyncing(true);
       setSyncMessage(null);
@@ -134,7 +134,25 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
               SquareIntegrationService.fetchCustomers(),
           ]);
           
-          console.warn("SYSTEM INVARIANT: Skipping persistence of Square team members because the 'stylists' table was not found in the schema. This is correct behavior for initial bootstrap sync.");
+          if (newStylists.length > 0) {
+              setSyncMessage(`Syncing ${newStylists.length} team members...`);
+              const records = newStylists.map(stylist => ({
+                square_team_member_id: stylist.id,
+                supabase_user_id: user.id,
+                name: stylist.name,
+                email: stylist.email,
+                role: stylist.role,
+                permissions: stylist.permissions,
+              }));
+
+              const { error: teamError } = await supabase
+                .from('square_team_members')
+                .upsert(records, { onConflict: 'square_team_member_id' });
+              
+              if (teamError) throw teamError;
+
+              updateStylists(newStylists);
+          }
           
           if (newSquareClients.length > 0) {
               setSyncMessage(`Syncing ${newSquareClients.length} clients...`);
@@ -156,6 +174,7 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
           }
 
           if (newServices.length > 0) {
+            setSyncMessage(`Syncing ${newServices.length} services...`);
             const servicePayload = newServices.map(s => ({
                 id: s.id,
                 name: s.name,
@@ -168,10 +187,8 @@ const AdminDashboard: React.FC<{ role: UserRole }> = ({ role }) => {
             if (se) throw se;
             updateServices(newServices);
           }
-
-          console.warn("SYSTEM INVARIANT: Skipping booking sync. This is an initial bootstrap sync and must not write to transactional tables like 'bookings'. This is correct and expected behavior.");
           
-          setSyncMessage("Client & Service sync completed successfully!");
+          setSyncMessage("Client, Team, & Service sync completed successfully!");
           saveAll();
           setHasUnsavedChanges(false);
       } catch (error: any) {

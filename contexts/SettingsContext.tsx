@@ -199,7 +199,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
             try {
                 const { data: teamData, error: teamFetchError } = await supabase
-                    .from('team_members')
+                    .from('square_team_members')
                     .select('*');
 
                 if (teamFetchError) throw teamFetchError;
