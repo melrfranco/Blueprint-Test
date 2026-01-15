@@ -1,54 +1,51 @@
 import React from 'react';
-import { HomeIcon, DocumentTextIcon, SettingsIcon } from './icons';
-import type { UserRole } from '../types';
+import { HomeIcon, CalendarIcon, UsersIcon, SettingsIcon, ClipboardIcon } from './icons';
 import { useSettings } from '../contexts/SettingsContext';
 import { ensureAccessibleColor } from '../utils/ensureAccessibleColor';
 
+export type Tab = 'dashboard' | 'calendar' | 'clients' | 'team' | 'settings';
+
 interface BottomNavProps {
-  role: UserRole; // kept for compatibility; Pro/Admin nav is identical by requirement
   activeTab: string;
-  onNavigate: (tab: string) => void;
+  onChange: (tab: Tab) => void;
 }
 
-const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onNavigate }) => {
+const NAV_ITEMS: { key: Tab; label: string; icon: any }[] = [
+  { key: 'dashboard', label: 'Home', icon: HomeIcon },
+  { key: 'calendar', label: 'Calendar', icon: CalendarIcon },
+  { key: 'clients', label: 'Clients', icon: UsersIcon },
+  { key: 'team', label: 'Team', icon: ClipboardIcon },
+  { key: 'settings', label: 'Settings', icon: SettingsIcon },
+];
+
+export default function BottomNav({ activeTab, onChange }: BottomNavProps) {
   const { branding } = useSettings();
-
-  // ✅ Pro/Admin nav is the same (no client nav, no stylist-only nav)
-  // ✅ Keys match AdminDashboard switch cases: 'dashboard' | 'plans' | 'settings'
-  const navItems = [
-    { name: 'Dashboard', icon: HomeIcon, key: 'dashboard' },
-    { name: 'Plans', icon: DocumentTextIcon, key: 'plans' },
-    { name: 'Settings', icon: SettingsIcon, key: 'settings' },
-  ];
-
   const safePrimaryColor = ensureAccessibleColor(branding.primaryColor, '#111827', '#BE123C');
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-gray-900 shadow-[0_-4px_0_0_#111827] z-50">
-      <div className="max-w-md mx-auto flex justify-around items-end py-2 px-2">
-        {navItems.map((item) => {
-          const isActive = activeTab === item.key;
-
+    <nav className="fixed bottom-0 inset-x-0 bg-white border-t-4 border-gray-900 z-50 shadow-[0_-10px_20px_rgba(0,0,0,0.1)]">
+      <div className="flex justify-around max-w-md mx-auto py-2 px-1">
+        {NAV_ITEMS.map(({ key, label, icon: Icon }) => {
+          const isActive = activeTab === key;
+          
           return (
             <button
-              key={item.key}
-              onClick={() => onNavigate(item.key)}
-              className={`flex flex-col items-center justify-center flex-1 mx-1 py-2 rounded-xl transition-all ${
+              key={key}
+              onClick={() => onChange(key)}
+              className={`flex flex-col items-center justify-center flex-1 py-1 rounded-xl transition-all ${
                 isActive ? 'bg-gray-100' : 'hover:bg-gray-50'
               }`}
               style={isActive ? { color: safePrimaryColor } : {}}
-              aria-label={item.name}
+              aria-label={label}
             >
-              <item.icon className={`h-7 w-7 mb-1 ${isActive ? 'stroke-[3]' : 'stroke-[2.5]'}`} />
-              <span className={`text-[10px] font-black uppercase tracking-tight ${isActive ? '' : 'text-gray-700'}`}>
-                {item.name}
+              <Icon className={`h-6 w-6 mb-0.5 ${isActive ? 'stroke-[3]' : 'stroke-[2.5]'}`} />
+              <span className={`text-[9px] font-black uppercase tracking-tight ${isActive ? '' : 'text-gray-950'}`}>
+                {label}
               </span>
             </button>
           );
         })}
       </div>
-    </div>
+    </nav>
   );
-};
-
-export default BottomNav;
+}
