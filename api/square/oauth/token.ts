@@ -180,7 +180,7 @@ export default async function handler(req: any, res: any) {
     return res.status(200).json({
       merchant_id,
       business_name,
-      access_token, // Added to ensure frontend can use it if needed for direct calls
+      access_token, // Critical: returned for frontend persistence
     });
 
   } catch (err: any) {
