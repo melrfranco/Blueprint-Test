@@ -29,7 +29,6 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // Normalize body (Vercel may provide raw string)
     let body = req.body;
     if (typeof body === 'string') {
       try {
@@ -43,14 +42,11 @@ export default async function handler(req: any, res: any) {
       body?.code ??
       (typeof req.query?.code === 'string' ? req.query.code : undefined);
 
-    // Fallback: extract from Referer header
     if (!code && typeof req.headers?.referer === 'string') {
       try {
         const refUrl = new URL(req.headers.referer);
         code = refUrl.searchParams.get('code') ?? undefined;
-      } catch {
-        // no-op
-      }
+      } catch {}
     }
 
     if (!code) {
@@ -74,10 +70,8 @@ export default async function handler(req: any, res: any) {
         'Authorization': `Basic ${basicAuth}`,
       },
       body: JSON.stringify({
-        // ✅ REQUIRED by Square (per error): include client_id (+ client_secret for compatibility)
         client_id: process.env.VITE_SQUARE_APPLICATION_ID,
         client_secret: process.env.VITE_SQUARE_APPLICATION_SECRET,
-
         grant_type: 'authorization_code',
         code,
         redirect_uri: process.env.VITE_SQUARE_REDIRECT_URI,
@@ -101,7 +95,8 @@ export default async function handler(req: any, res: any) {
       access_token
     );
 
-    const business_name = merchantData?.merchant?.business_name || 'Admin';
+    const business_name =
+      merchantData?.merchant?.business_name || 'Admin';
 
     const supabaseAdmin = createClient(
       process.env.VITE_SUPABASE_URL!,
@@ -142,11 +137,9 @@ export default async function handler(req: any, res: any) {
         { onConflict: 'supabase_user_id' }
       );
 
-    return res.status(200).json({
-      merchant_id,
-      business_name,
-      access_token,
-    });
+    // ✅ CRITICAL FIX: force app bootstrap by redirecting to Admin dashboard
+    return res.redirect(302, '/admin');
+
   } catch (e: any) {
     console.error('OAuth Token/Sync Error:', e);
     return res.status(500).json({ message: e.message });
