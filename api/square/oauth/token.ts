@@ -74,6 +74,10 @@ export default async function handler(req: any, res: any) {
         'Authorization': `Basic ${basicAuth}`,
       },
       body: JSON.stringify({
+        // ✅ REQUIRED by Square (per error): include client_id (+ client_secret for compatibility)
+        client_id: process.env.VITE_SQUARE_APPLICATION_ID,
+        client_secret: process.env.VITE_SQUARE_APPLICATION_SECRET,
+
         grant_type: 'authorization_code',
         code,
         redirect_uri: process.env.VITE_SQUARE_REDIRECT_URI,
@@ -97,8 +101,7 @@ export default async function handler(req: any, res: any) {
       access_token
     );
 
-    const business_name =
-      merchantData?.merchant?.business_name || 'Admin';
+    const business_name = merchantData?.merchant?.business_name || 'Admin';
 
     const supabaseAdmin = createClient(
       process.env.VITE_SUPABASE_URL!,
