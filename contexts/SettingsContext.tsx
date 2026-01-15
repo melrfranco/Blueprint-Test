@@ -26,6 +26,8 @@ interface SettingsContextType {
     textSize: AppTextSize;
     pushAlertsEnabled: boolean;
     pinnedReports: { [userId: string]: string[] };
+    loadingTeam: boolean;
+    teamError: string | null;
     updateServices: (services: Service[]) => void;
     updateLevels: (levels: StylistLevel[]) => void;
     updateStylists: (stylists: Stylist[]) => void;
@@ -74,12 +76,10 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         } catch { return STYLIST_LEVELS; }
     });
 
-    const [stylists, setStylists] = useState<Stylist[]>(() => {
-        try {
-            const saved = localStorage.getItem('admin_team');
-            return saved ? JSON.parse(saved) : [];
-        } catch { return []; }
-    });
+    // TEAM STATE: Initialize as empty, no localStorage fallback.
+    const [stylists, setStylists] = useState<Stylist[]>([]);
+    const [loadingTeam, setLoadingTeam] = useState(true);
+    const [teamError, setTeamError] = useState<string | null>(null);
 
     const [clients, setClients] = useState<Client[]>(() => {
         try {
@@ -168,6 +168,9 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             const merchantId = user?.user_metadata?.merchant_id;
             if (!merchantId) return;
 
+            setLoadingTeam(true);
+            setTeamError(null);
+            
             // Load settings from Supabase
             const { data, error } = await supabase
                 .from('merchant_settings')
@@ -181,7 +184,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             
             const dbSettings = data?.settings;
             
-            // Hydrate all settings from DB first
             if (dbSettings) {
                 if (dbSettings.services) setServices(dbSettings.services);
                 if (dbSettings.linkingConfig) setLinkingConfig(dbSettings.linkingConfig);
@@ -195,40 +197,43 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
                 if (dbSettings.pinnedReports) setPinnedReports(dbSettings.pinnedReports);
             }
 
-            // Fetch stylists exclusively from the 'team_members' table.
             try {
-                const { data: teamData, error: teamError } = await supabase
+                const { data: teamData, error: teamFetchError } = await supabase
                     .from('team_members')
                     .select('*');
 
-                if (teamError) throw teamError;
+                if (teamFetchError) throw teamFetchError;
 
                 if (!teamData || teamData.length === 0) {
-                    console.warn('No team members found in Supabase. Please sync team from Settings.');
-                    setStylists([]);
-                } else {
-                    const mappedStylists: Stylist[] = teamData.map((member: any) => ({
-                        id: member.square_team_member_id,
-                        name: member.name,
-                        role: member.role || 'Team Member',
-                        email: member.email,
-                        levelId: 'lvl_2', // Default level
-                        permissions: { // Default permissions
-                            canBookAppointments: true,
-                            canOfferDiscounts: false,
-                            requiresDiscountApproval: true,
-                            viewGlobalReports: false,
-                            viewClientContact: true,
-                            viewAllSalonPlans: false,
-                            can_book_own_schedule: true,
-                            can_book_peer_schedules: false,
-                        }
-                    }));
-                    setStylists(mappedStylists);
+                    const errMessage = 'No team members found. Sync your team from Square in Settings.';
+                    throw new Error(errMessage);
                 }
-            } catch (e) {
-                console.error("Failed to fetch team from Supabase:", e);
-                setStylists([]); // Fail fast to unblock UI
+                
+                const mappedStylists: Stylist[] = teamData.map((member: any) => ({
+                    id: member.square_team_member_id,
+                    name: member.name,
+                    role: member.role || 'Team Member',
+                    email: member.email,
+                    levelId: member.level_id || 'lvl_2',
+                    permissions: member.permissions || {
+                        canBookAppointments: true,
+                        canOfferDiscounts: false,
+                        requiresDiscountApproval: true,
+                        viewGlobalReports: false,
+                        viewClientContact: true,
+                        viewAllSalonPlans: false,
+                        can_book_own_schedule: true,
+                        can_book_peer_schedules: false,
+                    }
+                }));
+                setStylists(mappedStylists);
+                
+            } catch (e: any) {
+                console.error('Team load failed:', e);
+                setStylists([]);
+                setTeamError(e.message || 'Failed to load team');
+            } finally {
+                setLoadingTeam(false);
             }
 
 
@@ -259,6 +264,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session?.user) {
                 await loadDataForUser(session.user);
+            } else {
+              setLoadingTeam(false); // If no user, stop loading.
             }
         });
 
@@ -396,12 +403,11 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     };
 
     const saveAll = async () => {
-        // Continue saving to localStorage for instant UI updates and offline fallback
         try {
             localStorage.setItem('admin_services', JSON.stringify(services));
             localStorage.setItem('admin_linking_config', JSON.stringify(linkingConfig));
             localStorage.setItem('admin_levels', JSON.stringify(levels));
-            localStorage.setItem('admin_team', JSON.stringify(stylists));
+            // Do not save stylists to localStorage anymore.
             localStorage.setItem('admin_clients', JSON.stringify(clients.filter(c => isValidUUID(c.id))));
             localStorage.setItem('admin_membership_config', JSON.stringify(membershipConfig));
             localStorage.setItem('admin_integration', JSON.stringify(integration));
@@ -414,14 +420,13 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             console.error('Failed to save settings to localStorage:', e);
         }
 
-        // Also persist the entire settings state to Supabase
         if (!supabase) return;
         const { data: { user } } = await supabase.auth.getUser();
         const merchantId = user?.user_metadata?.merchant_id;
         if (!merchantId) return;
 
         const settingsBlob = {
-            services, linkingConfig, levels, stylists, clients: clients.filter(c => isValidUUID(c.id)), membershipConfig,
+            services, linkingConfig, levels, clients: clients.filter(c => isValidUUID(c.id)), membershipConfig,
             branding, integration, textSize, pushAlertsEnabled, pinnedReports,
         };
 
@@ -440,7 +445,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     return (
         <SettingsContext.Provider value={{
-            services, levels, stylists, clients, membershipConfig, branding, integration, linkingConfig, textSize, pushAlertsEnabled, pinnedReports,
+            services, levels, stylists, clients, membershipConfig, branding, integration, linkingConfig, textSize, pushAlertsEnabled, pinnedReports, loadingTeam, teamError,
             updateServices: setServices,
             updateLevels: setLevels,
             updateStylists: setStylists,
@@ -457,7 +462,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
             saveAll
         }}>
             {children}
-        {/* FIX: Corrected typo in closing tag from Settings-context-provider to SettingsContext.Provider */}
         </SettingsContext.Provider>
     );
 };
