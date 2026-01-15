@@ -20,6 +20,19 @@ const squareApiFetch = async (url: string, accessToken: string, options: Request
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const missingVars: string[] = [];
+  if (!process.env.VITE_SUPABASE_URL) missingVars.push('VITE_SUPABASE_URL');
+  if (!process.env.VITE_SUPABASE_SERVICE_ROLE_KEY) missingVars.push('VITE_SUPABASE_SERVICE_ROLE_KEY');
+  if (!process.env.VITE_SQUARE_APPLICATION_ID) missingVars.push('VITE_SQUARE_APPLICATION_ID');
+  if (!process.env.VITE_SQUARE_APPLICATION_SECRET) missingVars.push('VITE_SQUARE_APPLICATION_SECRET');
+  if (!process.env.VITE_SQUARE_REDIRECT_URI) missingVars.push('VITE_SQUARE_REDIRECT_URI');
+
+  if (missingVars.length > 0) {
+    const errorMessage = `Square Login Failed. Server configuration is missing. Missing env var(s): ${missingVars.join(', ')}. Fix: Add these in Vercel → Project → Settings → Environment Variables (Production + Preview) and redeploy.`;
+    console.error(errorMessage);
+    return res.status(500).json({ message: errorMessage });
+  }
+  
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).json({ message: 'Method not allowed' });
@@ -35,11 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const clientSecret = process.env.VITE_SQUARE_APPLICATION_SECRET;
     const redirectUri = process.env.VITE_SQUARE_REDIRECT_URI;
     const env = (process.env.VITE_SQUARE_ENV || 'production').toLowerCase();
-
-    if (!clientId || !clientSecret || !redirectUri) {
-      return res.status(500).json({ message: 'Missing Square OAuth server configuration.' });
-    }
-
+    
     // 1. Exchange code for token
     const tokenUrl = env === 'sandbox'
         ? 'https://connect.squareupsandbox.com/oauth2/token'
@@ -71,10 +80,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 3. Initialize Supabase Admin Client
     const supabaseUrl = process.env.VITE_SUPABASE_URL;
     const supabaseServiceKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !supabaseServiceKey) {
-        throw new Error("Supabase server configuration is missing.");
-    }
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    
+    const supabaseAdmin = createClient(supabaseUrl!, supabaseServiceKey!);
 
     // 4. Sign up or Sign in user on server
     const email = `${merchant_id}@square-oauth.blueprint`;
