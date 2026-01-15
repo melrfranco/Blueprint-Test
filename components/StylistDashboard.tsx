@@ -205,11 +205,7 @@ const StylistDashboard: React.FC<StylistDashboardProps> = ({ onLogout, role: pro
         throw new Error(`The selected client '${activeClient.name}' has an invalid ID. Please re-select a valid client.`);
     }
 
-    if (!user?.stylistData) {
-        throw new Error("Employee data for the logged-in user could not be found. Please ensure your account is properly configured or try re-syncing from settings.");
-    }
-
-    const stylistLevelId = user.stylistData.levelId || 'lvl_1'; 
+    const stylistLevelId = user?.stylistData?.levelId || 'lvl_1'; 
     const planStartDate = new Date();
     const planEndDate = new Date();
     planEndDate.setFullYear(planEndDate.getFullYear() + 1);
