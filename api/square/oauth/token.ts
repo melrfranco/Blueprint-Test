@@ -137,12 +137,10 @@ export default async function handler(req: any, res: any) {
         { onConflict: 'supabase_user_id' }
       );
 
-    // ✅ CRITICAL FIX: return success as 200 so frontend does not treat it as failure
-    // We include access_token so SquareCallback can save it to localStorage and pass the gate in App.tsx
+    // ✅ RESTORED: payload frontend expects to bootstrap app state
     return res.status(200).json({
-      success: true,
-      role: 'admin',
-      redirect: '/admin',
+      merchant_id,
+      business_name,
       access_token,
     });
 
