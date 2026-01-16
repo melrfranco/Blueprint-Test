@@ -54,13 +54,13 @@ const App: React.FC = () => {
   }
 
   return (
-    <AuthProvider>
-      <SettingsProvider>
+    <SettingsProvider>
+      <AuthProvider>
         <PlanProvider>
           <AppContent />
         </PlanProvider>
-      </SettingsProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </SettingsProvider>
   );
 };
 
