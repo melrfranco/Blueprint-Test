@@ -103,7 +103,11 @@ export const PlanProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     setBookings(bRes.data);
                 }
             } catch (err: any) {
-                console.error("Fatal error during PlanProvider data fetch:", err.message || err);
+                if (err?.name === 'AbortError') {
+                    console.warn('PlanProvider fetch aborted during auth initialization (safe to ignore)');
+                } else {
+                    console.error("Fatal error during PlanProvider data fetch:", err.message || err);
+                }
             } finally {
                 setLoading(false);
             }
