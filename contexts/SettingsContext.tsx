@@ -189,6 +189,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
                 if (dbSettings.linkingConfig) setLinkingConfig(dbSettings.linkingConfig);
                 if (dbSettings.levels) setLevels(dbSettings.levels);
                 if (dbSettings.clients) setClients(dbSettings.clients.filter((c: Client) => isValidUUID(c.id)));
+                console.log('[DEBUG] Loaded clients:', dbClients);
                 if (dbSettings.membershipConfig) setMembershipConfig(dbSettings.membershipConfig);
                 if (dbSettings.branding) setBranding(dbSettings.branding);
                 if (dbSettings.integration) setIntegration(dbSettings.integration);
