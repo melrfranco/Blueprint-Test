@@ -7,7 +7,6 @@ import SetDatesStep from './SetDatesStep';
 import SetFrequencyStep from './SetFrequencyStep';
 import LoadingStep from './LoadingStep';
 import PlanSummaryStep from './PlanSummaryStep';
-import BottomNav, { Tab } from './BottomNav';
 import { useSettings } from '../contexts/SettingsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { usePlans } from '../contexts/PlanContext';
@@ -16,6 +15,8 @@ import AccountSettings from './AccountSettings';
 import AdminDashboard from './AdminDashboard';
 import StylistReports from './StylistReports';
 import { ensureAccessibleColor } from '../utils/ensureAccessibleColor';
+// FIX: Import BottomNav and Tab to resolve "Cannot find name" errors in the template.
+import BottomNav, { Tab } from './BottomNav';
 
 interface StylistDashboardProps {
     onLogout: () => void;

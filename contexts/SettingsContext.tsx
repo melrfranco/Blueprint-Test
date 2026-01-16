@@ -1,5 +1,3 @@
-
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ALL_SERVICES, STYLIST_LEVELS, MEMBERSHIP_TIERS } from '../data/mockData';
 import type { Service, StylistLevel, Stylist, MembershipTier, Client, ServiceLinkingConfig, BrandingSettings, MembershipConfig, AppTextSize, User } from '../types';
@@ -11,8 +9,9 @@ export interface IntegrationSettings {
     environment: 'sandbox' | 'production';
 }
 
+// Accept ALL valid UUID versions (including v7 used by Supabase)
 const isValidUUID = (id?: string) =>
-  !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+  !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
 interface SettingsContextType {
     services: Service[];
