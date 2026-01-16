@@ -1,9 +1,48 @@
+import { createClient } from '@supabase/supabase-js';
+
 export default async function handler(req: any, res: any) {
   try {
-    const accessToken = process.env.SQUARE_ACCESS_TOKEN;
+    const authHeader = req.headers['authorization'] as string | undefined;
+    const bearer = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice(7)
+      : undefined;
 
-    if (!accessToken) {
-      return res.status(500).json({ error: 'Square access token missing on server.' });
+    if (
+      !bearer ||
+      !process.env.VITE_SUPABASE_URL ||
+      !process.env.SUPABASE_SERVICE_ROLE_KEY
+    ) {
+      return res.status(401).json({
+        error: 'Missing Supabase authentication for Square team request.',
+      });
+    }
+
+    const supabaseAdmin = createClient(
+      process.env.VITE_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
+    );
+
+    const { data: userData, error: userErr } =
+      await supabaseAdmin.auth.getUser(bearer);
+
+    const userId = userData?.user?.id;
+
+    if (userErr || !userId) {
+      return res.status(401).json({ error: 'Invalid Supabase user.' });
+    }
+
+    const { data: ms } = await supabaseAdmin
+      .from('merchant_settings')
+      .select('square_access_token')
+      .eq('supabase_user_id', userId)
+      .maybeSingle();
+
+    const squareAccessToken = ms?.square_access_token;
+
+    if (!squareAccessToken) {
+      return res.status(401).json({
+        error: 'Square not connected for this account.',
+      });
     }
 
     const squareRes = await fetch(
@@ -11,7 +50,7 @@ export default async function handler(req: any, res: any) {
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${squareAccessToken}`,
           'Content-Type': 'application/json',
           'Square-Version': '2023-10-20',
         },
@@ -19,9 +58,9 @@ export default async function handler(req: any, res: any) {
           query: {
             filter: {
               status: 'ACTIVE',
-            }
-          }
-        })
+            },
+          },
+        }),
       }
     );
 
