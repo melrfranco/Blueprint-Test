@@ -59,9 +59,10 @@ export default async function handler(req: any, res: any) {
         ? 'https://connect.squareupsandbox.com'
         : 'https://connect.squareup.com';
 
-    const basicAuth = Buffer.from(
+    // FIX: Replaced Buffer.from with btoa to resolve "Cannot find name 'Buffer'" error in environments where Node.js types are not explicitly included.
+    const basicAuth = btoa(
       `${process.env.VITE_SQUARE_APPLICATION_ID}:${process.env.VITE_SQUARE_APPLICATION_SECRET}`
-    ).toString('base64');
+    );
 
     const tokenRes = await fetch(`${baseUrl}/oauth2/token`, {
       method: 'POST',

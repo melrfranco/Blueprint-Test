@@ -9,9 +9,10 @@ import { PlanProvider } from './contexts/PlanContext';
 import './styles/accessibility.css';
 import MissingCredentialsScreen from './components/MissingCredentialsScreen';
 import { isSquareTokenMissing } from './services/squareIntegration';
+import LoginScreen from './components/LoginScreen';
 
 const AppContent: React.FC = () => {
-  const { user, logout, authInitialized } = useAuth();
+  const { user, login, logout, authInitialized } = useAuth();
 
   // AUTH INITIALIZATION GATE:
   // Do not render anything until the auth state has been confirmed. This prevents
@@ -24,10 +25,14 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // 🔒 If no user session is active after initialization, show the login screen.
+  if (!user) {
+    return <LoginScreen onLogin={login} />;
+  }
+
   const renderDashboard = () => {
-    // By defaulting to 'stylist', the app shell renders correctly even when
-    // no user is present (e.g., immediately after OAuth), restoring navigation.
-    const effectiveRole: UserRole = user?.role || 'stylist';
+    // ✅ User is guaranteed to exist here, so we can safely access their role.
+    const effectiveRole: UserRole = user.role;
 
     switch (effectiveRole) {
       case 'stylist':

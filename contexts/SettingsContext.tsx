@@ -80,12 +80,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     const [loadingTeam, setLoadingTeam] = useState(true);
     const [teamError, setTeamError] = useState<string | null>(null);
 
-    const [clients, setClients] = useState<Client[]>(() => {
-        try {
-            const saved = localStorage.getItem('admin_clients');
-            return saved ? JSON.parse(saved).filter((c: Client) => isValidUUID(c.id)) : [];
-        } catch { return []; }
-    });
+    const [clients, setClients] = useState<Client[]>([]);
 
     const [membershipConfig, setMembershipConfig] = useState<MembershipConfig>(() => {
         try {
@@ -188,8 +183,6 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
                 if (dbSettings.services) setServices(dbSettings.services);
                 if (dbSettings.linkingConfig) setLinkingConfig(dbSettings.linkingConfig);
                 if (dbSettings.levels) setLevels(dbSettings.levels);
-                if (dbSettings.clients) setClients(dbSettings.clients.filter((c: Client) => isValidUUID(c.id)));
-                console.log('[DEBUG] Loaded clients:', dbClients);
                 if (dbSettings.membershipConfig) setMembershipConfig(dbSettings.membershipConfig);
                 if (dbSettings.branding) setBranding(dbSettings.branding);
                 if (dbSettings.integration) setIntegration(dbSettings.integration);
@@ -253,6 +246,8 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
                         source: row.source
                     })).filter(c => isValidUUID(c.id));
                     
+                    console.log('[CLIENTS LOADED FROM SUPABASE]', dbClients);
+
                     if (dbClients.length > 0) {
                         setClients(dbClients);
                     }
@@ -427,8 +422,15 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         if (!merchantId) return;
 
         const settingsBlob = {
-            services, linkingConfig, levels, clients: clients.filter(c => isValidUUID(c.id)), membershipConfig,
-            branding, integration, textSize, pushAlertsEnabled, pinnedReports,
+            services,
+            linkingConfig,
+            levels,
+            membershipConfig,
+            branding,
+            integration,
+            textSize,
+            pushAlertsEnabled,
+            pinnedReports,
         };
 
         // FIX: Cast payload to any to bypass TypeScript inference errors with Supabase's upsert method when types are not available.
