@@ -8,7 +8,7 @@ const squareApiFetch = async (
   const response = await fetch(url, {
     method: options.method || 'GET',
     headers: {
-      Authorization: `Bearer ${accessToken}`,
+      'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
       'Square-Version': '2023-10-20',
     },
@@ -59,6 +59,7 @@ export default async function handler(req: any, res: any) {
         ? 'https://connect.squareupsandbox.com'
         : 'https://connect.squareup.com';
 
+    // FIX: Replaced Buffer.from with btoa to resolve "Cannot find name 'Buffer'" error in environments where Node.js types are not explicitly included.
     const basicAuth = btoa(
       `${process.env.VITE_SQUARE_APPLICATION_ID}:${process.env.VITE_SQUARE_APPLICATION_SECRET}`
     );
@@ -67,7 +68,7 @@ export default async function handler(req: any, res: any) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Basic ${basicAuth}`,
+        'Authorization': `Basic ${basicAuth}`,
       },
       body: JSON.stringify({
         client_id: process.env.VITE_SQUARE_APPLICATION_ID,
@@ -107,7 +108,7 @@ export default async function handler(req: any, res: any) {
     const password = merchant_id;
 
     let {
-      data: { user, session },
+      data: { user },
       error,
     } = await supabaseAdmin.auth.signInWithPassword({ email, password });
 
@@ -121,12 +122,9 @@ export default async function handler(req: any, res: any) {
       });
       if (signUp.error) throw signUp.error;
       user = signUp.data.user;
-      session = signUp.data.session;
     }
 
-    if (!user || !session) {
-      throw new Error('Supabase auth failed');
-    }
+    if (!user) throw new Error('Supabase auth failed');
 
     await supabaseAdmin
       .from('merchant_settings')
@@ -140,26 +138,13 @@ export default async function handler(req: any, res: any) {
         { onConflict: 'supabase_user_id' }
       );
 
-    const authHeader = {
-      Authorization: `Bearer ${session.access_token}`,
-    };
-
-    // 🔑 Trigger Square data syncs immediately after OAuth
-    await fetch(`${process.env.VITE_APP_URL}/api/square/clients`, {
-      method: 'POST',
-      headers: authHeader,
-    });
-
-    await fetch(`${process.env.VITE_APP_URL}/api/square/team`, {
-      method: 'POST',
-      headers: authHeader,
-    });
-
+    // ✅ RESTORED: payload frontend expects to bootstrap app state
     return res.status(200).json({
       merchant_id,
       business_name,
       access_token,
     });
+
   } catch (e: any) {
     console.error('OAuth Token/Sync Error:', e);
     return res.status(500).json({ message: e.message });
