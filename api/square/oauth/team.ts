@@ -16,19 +16,34 @@ export default async function handler(req: any, res: any) {
       return res.status(401).json({ message: 'Missing Supabase auth token' });
     }
 
-    const supabaseAdmin = createClient(
+    // User-scoped Supabase client (identity only)
+    const supabaseUser = createClient(
       process.env.VITE_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.VITE_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${bearer}`,
+          },
+        },
+      }
     );
 
     const { data: userData, error: userErr } =
-      await supabaseAdmin.auth.getUser(bearer);
+      await supabaseUser.auth.getUser();
 
     if (userErr || !userData?.user) {
+      console.error('[TEAM SYNC] Invalid Supabase session:', userErr);
       return res.status(401).json({ message: 'Invalid Supabase session' });
     }
 
     const supabaseUserId = userData.user.id;
+
+    // Service-role Supabase client (DB access)
+    const supabaseAdmin = createClient(
+      process.env.VITE_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     const { data: ms, error: msErr } = await supabaseAdmin
       .from('merchant_settings')
@@ -37,26 +52,22 @@ export default async function handler(req: any, res: any) {
       .single();
 
     if (msErr || !ms?.square_access_token || !ms?.square_merchant_id) {
-      return res.status(401).json({
+      console.error('[TEAM SYNC] merchant_settings lookup failed:', msErr);
+      return res.status(400).json({
         message: 'Square connection missing for user',
       });
     }
-
-    const squareAccessToken = ms.square_access_token;
-    const merchantId = ms.square_merchant_id;
 
     const squareRes = await fetch(
       'https://connect.squareup.com/v2/team-members/search',
       {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${squareAccessToken}`,
+          Authorization: `Bearer ${ms.square_access_token}`,
           'Content-Type': 'application/json',
           'Square-Version': '2023-10-20',
         },
-        body: JSON.stringify({
-          limit: 100,
-        }),
+        body: JSON.stringify({ limit: 100 }),
       }
     );
 
@@ -68,7 +79,6 @@ export default async function handler(req: any, res: any) {
     }
 
     const members = squareJson.team_members || [];
-
     console.log('[TEAM SYNC] Square members:', members.length);
 
     if (members.length === 0) {
@@ -76,7 +86,7 @@ export default async function handler(req: any, res: any) {
     }
 
     const rows = members.map((m: any) => ({
-      merchant_id: merchantId,
+      merchant_id: ms.square_merchant_id,
       square_team_member_id: m.id,
       name: [m.given_name, m.family_name].filter(Boolean).join(' ') || 'Team',
       email: m.email_address || null,
@@ -88,9 +98,7 @@ export default async function handler(req: any, res: any) {
 
     const { error: insertErr } = await supabaseAdmin
       .from('square_team_members')
-      .upsert(rows, {
-        onConflict: 'square_team_member_id',
-      });
+      .upsert(rows, { onConflict: 'square_team_member_id' });
 
     if (insertErr) {
       console.error('[TEAM SYNC] Insert failed:', insertErr);
@@ -98,10 +106,7 @@ export default async function handler(req: any, res: any) {
     }
 
     console.log('[TEAM SYNC] Inserted:', rows.length);
-
-    return res.status(200).json({
-      inserted: rows.length,
-    });
+    return res.status(200).json({ inserted: rows.length });
   } catch (e: any) {
     console.error('[TEAM SYNC] Fatal error:', e);
     return res.status(500).json({ message: e.message });
