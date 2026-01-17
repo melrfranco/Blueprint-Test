@@ -176,11 +176,12 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     const { data, error } = await supabase
       .from('clients')
+      // FIX: Cast payload to `any` to resolve Supabase type inference issue.
       .insert({
         name: clientData.name,
         email: clientData.email,
         avatar_url: avatarUrl,
-      })
+      } as any)
       .select()
       .single();
 
@@ -188,13 +189,15 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       throw error || new Error('Failed to create client');
     }
 
+    // FIX: Cast `data` to `any` to resolve Supabase type inference issues.
+    const dbRow = data as any;
     const newClient: Client = {
-      id: data.id,
-      externalId: data.external_id,
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      avatarUrl: data.avatar_url,
+      id: dbRow.id,
+      externalId: dbRow.external_id,
+      name: dbRow.name,
+      email: dbRow.email,
+      phone: dbRow.phone,
+      avatarUrl: dbRow.avatar_url,
       historicalData: [],
       source: 'manual',
     };
@@ -233,15 +236,17 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     if (dbError) console.error("Error checking for existing client:", dbError);
     
     if (dbData) {
+      // FIX: Cast `dbData` to `any` to resolve Supabase type inference issues.
+      const clientRow = dbData as any;
       const client: Client = {
-        id: dbData.id,
-        externalId: dbData.external_id,
-        name: dbData.name,
-        email: dbData.email,
-        phone: dbData.phone,
-        avatarUrl: dbData.avatar_url,
+        id: clientRow.id,
+        externalId: clientRow.external_id,
+        name: clientRow.name,
+        email: clientRow.email,
+        phone: clientRow.phone,
+        avatarUrl: clientRow.avatar_url,
         historicalData: [],
-        source: dbData.source || 'square',
+        source: clientRow.source || 'square',
       };
       setClients(prev => [...prev.filter(c => c.id !== client.id), client]);
       return client;
@@ -249,6 +254,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     
     const { data, error } = await supabase
       .from('clients')
+      // FIX: Cast payload to `any` to resolve Supabase type inference issue.
       .insert({
         name: details.name,
         email: details.email,
@@ -256,19 +262,24 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         avatar_url: details.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(details.name)}&background=random`,
         external_id: externalId,
         source: 'square',
-      })
+      } as any)
       .select()
       .single();
 
     if (error) throw error;
 
+    // FIX: Add null check for `data` and cast to `any` to resolve type errors.
+    if (!data) {
+      throw new Error('Failed to create client in DB: no data returned.');
+    }
+    const dbRow = data as any;
     const newClient: Client = {
-      id: data.id,
-      externalId: data.external_id,
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      avatarUrl: data.avatar_url,
+      id: dbRow.id,
+      externalId: dbRow.external_id,
+      name: dbRow.name,
+      email: dbRow.email,
+      phone: dbRow.phone,
+      avatarUrl: dbRow.avatar_url,
       historicalData: [],
       source: 'square',
     };
