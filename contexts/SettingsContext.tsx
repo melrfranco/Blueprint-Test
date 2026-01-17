@@ -160,6 +160,7 @@ document.body.classList.add(`text-size-${textSize.toLowerCase()}`);
 }, [textSize]);
 
 useEffect(() => {
+const loadSettingsFromDb = async () => {
 if (!supabase) return;
 
 const loadDataForUser = async (user: any) => {
@@ -176,9 +177,17 @@ const { data, error } = await supabase
 .select('settings')
 .eq('merchant_id', merchantId)
 .single();
+            // Use the currently authenticated user to scope settings.
+            // Assuming the user's ID acts as the merchant_id for this single-tenant app.
+const { data: { user } } = await supabase.auth.getUser();
+            const merchantId = user?.id;
+            const merchantId = user?.user_metadata?.merchant_id;
 
 if (error && error.code !== 'PGRST116') { // PGRST116: "exact one row not found"
 console.error('Error loading settings from Supabase:', error);
+if (!merchantId) {
+                // Not logged in as a user who can have settings, rely on localStorage/defaults.
+return;
 }
 
 // FIX: Guard against data being null and cast to any to allow property access.
@@ -191,10 +200,13 @@ if (dbSettings.levels) setLevels(dbSettings.levels);
 if (dbSettings.clients) setClients(dbSettings.clients.filter((c: Client) => isValidUUID(c.id)));
                 console.log('[DEBUG] Loaded clients:', dbClients);
 if (dbSettings.membershipConfig) setMembershipConfig(dbSettings.membershipConfig);
+@@ -245,7 +242,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 if (dbSettings.branding) setBranding(dbSettings.branding);
 if (dbSettings.integration) setIntegration(dbSettings.integration);
 if (dbSettings.textSize) setTextSize(dbSettings.textSize);
 if (dbSettings.pushAlertsEnabled !== undefined) setPushAlertsEnabled(dbSettings.pushAlertsEnabled);
+                if (dbSettings.pushAlertsEnabled) setPushAlertsEnabled(dbSettings.pushAlertsEnabled);
+                if (dbSettings.pushAlertsEnabled !== undefined) setPushAlertsEnabled(dbSettings.pushAlertsEnabled);
 if (dbSettings.pinnedReports) setPinnedReports(dbSettings.pinnedReports);
 }
 
@@ -421,9 +433,13 @@ localStorage.setItem('admin_brand_font', branding.font);
 console.error('Failed to save settings to localStorage:', e);
 }
 
+@@ -427,7 +424,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
+// Also persist the entire settings state to Supabase
 if (!supabase) return;
 const { data: { user } } = await supabase.auth.getUser();
 const merchantId = user?.user_metadata?.merchant_id;
+        const merchantId = user?.id;
+        const merchantId = user?.user_metadata?.merchant_id;
 if (!merchantId) return;
 
 const settingsBlob = {
@@ -471,7 +487,9 @@ saveAll
 export const useSettings = () => {
 const context = useContext(SettingsContext);
 if (!context) {
+@@ -477,4 +474,4 @@ export const useSettings = () => {
 throw new Error("useSettings must be used within a SettingsProvider");
 }
 return context;
+};
 };
