@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useContext,
@@ -29,18 +30,12 @@ export interface IntegrationSettings {
   environment: IntegrationEnvironment;
 }
 
-// Accept ALL valid UUID versions (Supabase ids)
-const isValidUUID = (id?: string) =>
-  !!id &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    id
-  );
-
 interface SettingsContextType {
   services: Service[];
   levels: StylistLevel[];
   stylists: Stylist[];
   clients: Client[];
+
   membershipConfig: MembershipConfig;
   branding: BrandingSettings;
   integration: IntegrationSettings;
@@ -49,11 +44,9 @@ interface SettingsContextType {
   pushAlertsEnabled: boolean;
   pinnedReports: { [userId: string]: string[] };
 
-  // Team loading states used by UI
   loadingTeam: boolean;
   teamError: string | null;
 
-  // Updaters
   updateServices: (services: Service[]) => void;
   updateLevels: (levels: StylistLevel[]) => void;
   updateStylists: (stylists: Stylist[]) => void;
@@ -77,22 +70,16 @@ interface SettingsContextType {
   saveAll: () => Promise<void>;
 }
 
-const SettingsContext = createContext<SettingsContextType | undefined>(
-  undefined
-);
+const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const useSettings = () => {
-  const context = useContext(SettingsContext);
-  if (!context) {
-    throw new Error('useSettings must be used within a SettingsProvider');
-  }
-  return context;
+  const ctx = useContext(SettingsContext);
+  if (!ctx) throw new Error('useSettings must be used within a SettingsProvider');
+  return ctx;
 };
 
-export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
-  children,
-}) => {
-  // --- Core settings state (single source of truth) ---
+export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // Core settings state (single instance)
   const [services, setServices] = useState<Service[]>(() => ALL_SERVICES);
   const [levels, setLevels] = useState<StylistLevel[]>(() => STYLIST_LEVELS);
   const [stylists, setStylists] = useState<Stylist[]>([]);
@@ -126,32 +113,25 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
 
   const [textSize, setTextSize] = useState<AppTextSize>('M');
   const [pushAlertsEnabled, setPushAlertsEnabled] = useState(false);
-  const [pinnedReports, setPinnedReports] = useState<{ [userId: string]: string[] }>(
-    {}
-  );
+  const [pinnedReports, setPinnedReports] = useState<{ [userId: string]: string[] }>({});
 
   const [loadingTeam, setLoadingTeam] = useState(false);
   const [teamError, setTeamError] = useState<string | null>(null);
 
-  // --- Load clients + team from Supabase AFTER auth is ready ---
+  // Load data once per auth session; no loops, no state that triggers re-subscribe.
   useEffect(() => {
     if (!supabase) return;
 
     let cancelled = false;
 
-    const load = async () => {
-      // Ensure we have an authenticated user before querying user-scoped tables
+    const loadForUser = async () => {
       const { data: userResp, error: userErr } = await supabase.auth.getUser();
       if (cancelled) return;
 
       const user = userResp?.user;
-      if (userErr || !user) {
-        // Not signed in yet; do not loop, just exit quietly.
-        return;
-      }
+      if (userErr || !user) return;
 
-      // --- Clients (RLS enabled) ---
-      // Expectation: clients table uses `supabase_user_id` and RLS allows auth.uid() to read its own rows.
+      // ---- Clients: scoped by supabase_user_id (avoids loading everyone)
       try {
         const { data, error } = await supabase
           .from('clients')
@@ -159,36 +139,32 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
           .eq('supabase_user_id', user.id)
           .order('created_at', { ascending: true });
 
-        if (!cancelled) {
-          if (error) {
-            console.error('Failed to load clients:', error);
-            setClients([]);
-          } else {
-            const mapped: Client[] = (data || [])
-              .map((row: any) => ({
-                id: row.id,
-                externalId: row.external_id,
-                name: row.name,
-                email: row.email,
-                phone: row.phone,
-                avatarUrl: row.avatar_url,
-                historicalData: [],
-                source: row.source || 'manual',
-              }))
-              .filter((c: Client) => isValidUUID(c.id));
+        if (cancelled) return;
 
-            setClients(mapped);
-          }
+        if (error) {
+          console.error('[Settings] Failed to load clients:', error);
+          setClients([]);
+        } else {
+          const mapped: Client[] = (data || []).map((row: any) => ({
+            id: row.id,
+            externalId: row.external_id,
+            name: row.name,
+            email: row.email,
+            phone: row.phone,
+            avatarUrl: row.avatar_url,
+            historicalData: [],
+            source: row.source || 'manual',
+          }));
+          setClients(mapped);
         }
       } catch (e) {
         if (!cancelled) {
-          console.error('Failed to load clients (fatal):', e);
+          console.error('[Settings] Clients load fatal:', e);
           setClients([]);
         }
       }
 
-      // --- Team (RLS disabled per your report) ---
-      // Filter by merchant_id if available in user metadata.
+      // ---- Team: does NOT block app (empty is OK)
       const merchantId =
         (user.user_metadata as any)?.merchant_id ||
         (user.app_metadata as any)?.merchant_id ||
@@ -198,33 +174,31 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
       setTeamError(null);
 
       try {
-        let query = supabase.from('square_team_members').select('*');
-        if (merchantId) {
-          query = query.eq('merchant_id', merchantId);
-        }
+        let q = supabase.from('square_team_members').select('*');
+        if (merchantId) q = q.eq('merchant_id', merchantId);
 
-        const { data, error } = await query;
+        const { data, error } = await q;
 
-        if (!cancelled) {
-          if (error) {
-            console.warn('Square team not available:', error.message);
-            setStylists([]);
-            setTeamError(null);
-          } else {
-            const mapped: Stylist[] = (data || []).map((row: any) => ({
-              id: row.square_team_member_id,
-              name: row.name,
-              role: row.role || 'Team Member',
-              email: row.email,
-              levelId: row.level_id || 'default',
-              permissions: row.permissions || {},
-            }));
-            setStylists(mapped);
-          }
+        if (cancelled) return;
+
+        if (error) {
+          console.warn('[Settings] Team not available:', error.message);
+          setStylists([]);
+          setTeamError(null);
+        } else {
+          const mapped: Stylist[] = (data || []).map((row: any) => ({
+            id: row.square_team_member_id,
+            name: row.name,
+            role: row.role || 'Team Member',
+            email: row.email,
+            levelId: row.level_id || 'default',
+            permissions: row.permissions || {},
+          }));
+          setStylists(mapped);
         }
       } catch (e: any) {
         if (!cancelled) {
-          console.error('Team load failed:', e);
+          console.error('[Settings] Team load fatal:', e);
           setStylists([]);
           setTeamError(e?.message || 'Failed to load team');
         }
@@ -233,23 +207,30 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
       }
     };
 
-    // Load once when provider mounts AND whenever auth state changes to signed-in.
-    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+    // Run once immediately
+    void loadForUser();
+
+    // Subscribe once to auth changes
+    const { data } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-        void load();
+        void loadForUser();
+      }
+      if (event === 'SIGNED_OUT') {
+        // Clear user-scoped data
+        setClients([]);
+        setStylists([]);
+        setLoadingTeam(false);
+        setTeamError(null);
       }
     });
 
-    // Also attempt once immediately (covers already-signed-in users)
-    void load();
-
     return () => {
       cancelled = true;
-      sub?.subscription?.unsubscribe();
+      data?.subscription?.unsubscribe();
     };
   }, []);
 
-  // --- Mutators / utilities ---
+  // Updaters
   const updateServices = (v: Service[]) => setServices(v);
   const updateLevels = (v: StylistLevel[]) => setLevels(v);
   const updateStylists = (v: Stylist[]) => setStylists(v);
@@ -260,13 +241,13 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
   const updateLinkingConfig = (v: ServiceLinkingConfig) => setLinkingConfig(v);
 
   const updateTextSize = (size: AppTextSize) => setTextSize(size);
-  const updatePushAlertsEnabled = (enabled: boolean) =>
-    setPushAlertsEnabled(enabled);
+  const updatePushAlertsEnabled = (enabled: boolean) => setPushAlertsEnabled(enabled);
 
   const updatePinnedReports = (userId: string | number, reportIds: string[]) => {
     setPinnedReports((prev) => ({ ...prev, [String(userId)]: reportIds }));
   };
 
+  // Minimal createClient (manual clients only). Keeps API surface intact.
   const createClient = async (clientData: { name: string; email: string }) => {
     if (!supabase) throw new Error('Supabase not initialized');
 
@@ -306,10 +287,11 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
       source: row.source || 'manual',
     };
 
-    setClients((prev) => [...prev.filter((c) => c.id !== newClient.id), newClient]);
+    setClients((prev) => [...prev, newClient]);
     return newClient;
   };
 
+  // Minimal resolver that ensures a client exists in DB (used by downstream flows)
   const resolveClientByExternalId = async (
     externalId: string,
     clientDetails: { name: string; email?: string; phone?: string; avatarUrl?: string }
@@ -320,22 +302,20 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
     const user = userResp?.user;
     if (userErr || !user) throw new Error('Not authenticated');
 
-    const existingLocal = clients.find((c) => c.externalId === externalId);
-    if (existingLocal) return existingLocal;
+    const local = clients.find((c) => c.externalId === externalId);
+    if (local) return local;
 
-    const { data: existingDb, error: findErr } = await supabase
+    const { data: existing, error: findErr } = await supabase
       .from('clients')
       .select('*')
       .eq('supabase_user_id', user.id)
       .eq('external_id', externalId)
       .maybeSingle();
 
-    if (findErr) {
-      console.error('Error checking for existing client:', findErr);
-    }
+    if (findErr) console.error('[Settings] resolveClient find error:', findErr);
 
-    if (existingDb) {
-      const row = existingDb as any;
+    if (existing) {
+      const row = existing as any;
       const client: Client = {
         id: row.id,
         externalId: row.external_id,
@@ -386,11 +366,11 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
       source: row.source || 'square',
     };
 
-    setClients((prev) => [...prev.filter((c) => c.id !== newClient.id), newClient]);
+    setClients((prev) => [...prev, newClient]);
     return newClient;
   };
 
-  // Save settings locally only (no assumptions about DB columns beyond confirmed tables)
+  // Keep settings save non-blocking for now; persistence will be implemented once app is stable.
   const saveAll = async () => {
     try {
       localStorage.setItem('admin_services', JSON.stringify(services));
@@ -403,7 +383,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
       localStorage.setItem('admin_push_alerts_enabled', String(pushAlertsEnabled));
       localStorage.setItem('admin_pinned_reports', JSON.stringify(pinnedReports));
     } catch (e) {
-      console.error('Failed to save settings locally:', e);
+      console.error('[Settings] Failed to save locally:', e);
     }
   };
 
@@ -454,7 +434,10 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({
     ]
   );
 
-  return (
-    <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>
-  );
+  return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 };
+
+CONSTRAINTS:
+No OAuth changes
+No auth redesign
+No new dependencies
