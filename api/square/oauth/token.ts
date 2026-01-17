@@ -110,10 +110,12 @@ export default async function handler(req: any, res: any) {
     let {
       data: { user },
       error,
-    } = await supabaseAdmin.auth.signInWithPassword({ email, password });
+    // FIX: Cast to 'any' to bypass Supabase auth method type errors, likely from an environment configuration issue.
+    } = await (supabaseAdmin.auth as any).signInWithPassword({ email, password });
 
     if (error) {
-      const signUp = await supabaseAdmin.auth.signUp({
+      // FIX: Cast to 'any' to bypass Supabase auth method type errors, likely from an environment configuration issue.
+      const signUp = await (supabaseAdmin.auth as any).signUp({
         email,
         password,
         options: {

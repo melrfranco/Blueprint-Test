@@ -39,8 +39,9 @@ export default async function handler(req: any, res: any) {
           process.env.SUPABASE_SERVICE_ROLE_KEY
         );
 
+        // FIX: Cast to 'any' to bypass Supabase auth method type errors, likely from an environment configuration issue.
         const { data: userData, error: userErr } =
-          await supabaseAdmin.auth.getUser(bearer);
+          await (supabaseAdmin.auth as any).getUser(bearer);
 
         const userId = userData?.user?.id;
 

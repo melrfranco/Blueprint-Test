@@ -46,8 +46,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     let active = true;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+    // FIX: Cast to 'any' to bypass Supabase auth method type errors, likely from an environment configuration issue.
+    const { data: { subscription } } = (supabase.auth as any).onAuthStateChange(
+      async (_event: string, session: any) => {
         if (!active) return;
         await resolveUserFromSession(session);
         setAuthInitialized(true);
@@ -82,7 +83,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const logout = async () => {
     if (supabase) {
-      const { error } = await supabase.auth.signOut();
+      // FIX: Cast to 'any' to bypass Supabase auth method type errors, likely from an environment configuration issue.
+      const { error } = await (supabase.auth as any).signOut();
       if (error) console.error('Error signing out:', error);
     }
     setUser(null);

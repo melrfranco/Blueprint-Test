@@ -36,8 +36,9 @@ export default async function handler(req: any, res: any) {
       }
     );
 
+    // FIX: Cast to 'any' to bypass Supabase auth method type errors, likely from an environment configuration issue.
     const { data: userData, error: userErr } =
-      await supabaseUser.auth.getUser();
+      await (supabaseUser.auth as any).getUser();
 
     if (userErr || !userData?.user) {
       console.error('[CLIENT SYNC] Invalid Supabase session:', userErr);

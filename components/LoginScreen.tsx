@@ -1,6 +1,5 @@
 import React from 'react';
 import type { UserRole } from '../types';
-import { clearSupabaseConfig } from '../lib/supabase';
 import { useSettings } from '../contexts/SettingsContext';
 import { SettingsIcon } from './icons';
 import { ensureAccessibleColor } from '../utils/ensureAccessibleColor';
@@ -88,13 +87,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
               </div>
             </button>
           </div>
-
-          <button
-            onClick={clearSupabaseConfig}
-            className="w-full text-center mt-10 text-[9px] font-black text-gray-300 uppercase tracking-widest hover:text-brand-accent transition-colors"
-          >
-            Reset System Database Config
-          </button>
+          {/* FIX: Removed deprecated button to reset database config. */}
         </div>
       </div>
     </div>

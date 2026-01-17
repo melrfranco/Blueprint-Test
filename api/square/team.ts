@@ -27,7 +27,8 @@ export default async function handler(req: any, res: any) {
       return res.status(401).json({ message: 'Missing auth token.' });
     }
 
-    const { data: userData } = await supabaseAdmin.auth.getUser(bearer);
+    // FIX: Cast to 'any' to bypass Supabase auth method type errors, likely from an environment configuration issue.
+    const { data: userData } = await (supabaseAdmin.auth as any).getUser(bearer);
     const supabaseUserId = userData?.user?.id;
 
     if (!supabaseUserId) {

@@ -1,39 +1,29 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
+// FIX: Use process.env, which is populated by vite.config.js, instead of import.meta.env.
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
+// FIX: Use process.env, which is populated by vite.config.js, instead of import.meta.env.
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
 
-let supabaseClient: ReturnType<typeof createClient> | null = null;
+// FIX: Renamed to avoid redeclaring the exported 'supabase' const.
+let supabaseInstance: SupabaseClient | null = null;
 
-if (supabaseUrl && supabaseAnonKey) {
-  supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+export const getSupabaseClient = (): SupabaseClient => {
+  if (supabaseInstance) return supabaseInstance;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error('Supabase environment variables are missing');
+  }
+
+  supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true, // Enabled per patch request
+      detectSessionInUrl: true,
     },
   });
-} else {
-  // The MissingCredentialsScreen handles this, so a console warn is sufficient.
-  console.warn(
-    'Supabase environment variables are missing. App will show configuration error screen.'
-  );
-}
 
-// Export nullable client — app must guard against null
-export const supabase = supabaseClient;
+  return supabaseInstance;
+};
 
-
-/**
- * Clears all Supabase-related keys from localStorage to reset the session,
- * then reloads the page.
- */
-export function clearSupabaseConfig() {
-  Object.keys(localStorage).forEach(key => {
-    if (key.startsWith('sb-')) {
-      localStorage.removeItem(key);
-    }
-  });
-  alert('Supabase configuration has been cleared. The application will now reload.');
-  window.location.reload();
-}
+export const supabase = getSupabaseClient();
