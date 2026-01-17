@@ -436,8 +436,3 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
 };
-
-CONSTRAINTS:
-No OAuth changes
-No auth redesign
-No new dependencies
