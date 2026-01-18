@@ -16,55 +16,41 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [authInitialized, setAuthInitialized] = useState(false);
 
+  // 🔴 IMPORTANT: App must NEVER block on auth
   useEffect(() => {
-    if (!supabase) {
-      setAuthInitialized(true);
-      return;
-    }
+    let cancelled = false;
 
-    let active = true;
+    // ✅ Always unblock the app
+    setAuthInitialized(true);
 
-    const resolveUserFromSession = (session: any) => {
-      if (!active) return;
+    if (!supabase) return;
 
-      const authUser = session?.user;
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) return;
 
-      if (!authUser) {
-        setUser(null);
-        setAuthInitialized(true);
-        return;
-      }
+        const authUser = data.session?.user;
+        if (!authUser) return;
 
-      const { role, business_name } = authUser.user_metadata || {};
+        const { role, business_name } = authUser.user_metadata || {};
 
-      if (role === 'admin') {
-        setUser({
-          id: authUser.id,
-          name: business_name || 'Admin',
-          role: 'admin',
-          email: authUser.email,
-          isMock: false,
-        });
-      } else {
-        setUser(null);
-      }
-
-      setAuthInitialized(true);
-    };
-
-    // ✅ IMPORTANT: initialize immediately (prevents infinite loading loop)
-    supabase.auth.getSession().then(({ data }) => {
-      resolveUserFromSession(data.session);
-    });
-
-    const { data: { subscription } } =
-      supabase.auth.onAuthStateChange((_event, session) => {
-        resolveUserFromSession(session);
+        if (role === 'admin') {
+          setUser({
+            id: authUser.id,
+            name: business_name || 'Admin',
+            role: 'admin',
+            email: authUser.email,
+            isMock: false,
+          });
+        }
+      })
+      .catch(() => {
+        // ❗ Ignore auth failures — app still loads
       });
 
     return () => {
-      active = false;
-      subscription?.unsubscribe();
+      cancelled = true;
     };
   }, []);
 
@@ -89,10 +75,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = async () => {
-    if (supabase) {
-      const { error } = await (supabase.auth as any).signOut();
-      if (error) console.error('Error signing out:', error);
-    }
+    try {
+      await supabase?.auth.signOut();
+    } catch {}
     setUser(null);
   };
 
@@ -112,9 +97,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
 };
