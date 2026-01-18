@@ -16,11 +16,58 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [authInitialized, setAuthInitialized] = useState(false);
 
-  useEffect(() => {
-    if (!supabase) {
+useEffect(() => {
+  if (!supabase) {
+    setAuthInitialized(true);
+    return;
+  }
+
+  let active = true;
+
+  const resolveUserFromSession = async (session: any) => {
+    if (!active) return;
+
+    const authUser = session?.user;
+
+    if (!authUser) {
+      setUser(null);
       setAuthInitialized(true);
       return;
     }
+
+    const { role, business_name } = authUser.user_metadata || {};
+
+    if (role === 'admin') {
+      setUser({
+        id: authUser.id,
+        name: business_name || 'Admin',
+        role: 'admin',
+        email: authUser.email,
+        isMock: false,
+      });
+    } else {
+      setUser(null);
+    }
+
+    setAuthInitialized(true);
+  };
+
+  // ✅ THIS is the missing piece that fixes the loop
+  supabase.auth.getSession().then(({ data }) => {
+    resolveUserFromSession(data.session);
+  });
+
+  const { data: { subscription } } =
+    supabase.auth.onAuthStateChange((_event, session) => {
+      resolveUserFromSession(session);
+    });
+
+  return () => {
+    active = false;
+    subscription?.unsubscribe();
+  };
+}, []);
+
 
     const resolveUserFromSession = async (session: any) => {
       const authUser = session?.user;
