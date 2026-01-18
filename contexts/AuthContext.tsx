@@ -1,4 +1,4 @@
-    import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { User, UserRole } from '../types';
 import { supabase } from '../lib/supabase';
 import { isSquareTokenMissing } from '../services/squareIntegration';
@@ -53,8 +53,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
 
       // 🔑 THIS IS THE MISSING LOGIC
-      // FIX: `isSquareTokenMissing` is a boolean constant, not a function.
-      setNeedsSquareConnect(isSquareTokenMissing);
+      setNeedsSquareConnect(isSquareTokenMissing());
 
       setAuthInitialized(true);
     };
