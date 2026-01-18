@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { User, UserRole } from '../types';
 import { supabase } from '../lib/supabase';
 
@@ -16,63 +16,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [authInitialized, setAuthInitialized] = useState(false);
 
-useEffect(() => {
-  if (!supabase) {
-    setAuthInitialized(true);
-    return;
-  }
-
-  let active = true;
-
-  const resolveUserFromSession = async (session: any) => {
-    if (!active) return;
-
-    const authUser = session?.user;
-
-    if (!authUser) {
-      setUser(null);
+  useEffect(() => {
+    if (!supabase) {
       setAuthInitialized(true);
       return;
     }
 
-    const { role, business_name } = authUser.user_metadata || {};
+    let active = true;
 
-    if (role === 'admin') {
-      setUser({
-        id: authUser.id,
-        name: business_name || 'Admin',
-        role: 'admin',
-        email: authUser.email,
-        isMock: false,
-      });
-    } else {
-      setUser(null);
-    }
+    const resolveUserFromSession = (session: any) => {
+      if (!active) return;
 
-    setAuthInitialized(true);
-  };
-
-  // ✅ THIS is the missing piece that fixes the loop
-  supabase.auth.getSession().then(({ data }) => {
-    resolveUserFromSession(data.session);
-  });
-
-  const { data: { subscription } } =
-    supabase.auth.onAuthStateChange((_event, session) => {
-      resolveUserFromSession(session);
-    });
-
-  return () => {
-    active = false;
-    subscription?.unsubscribe();
-  };
-}, []);
-
-
-    const resolveUserFromSession = async (session: any) => {
       const authUser = session?.user;
+
       if (!authUser) {
         setUser(null);
+        setAuthInitialized(true);
         return;
       }
 
@@ -89,18 +48,19 @@ useEffect(() => {
       } else {
         setUser(null);
       }
+
+      setAuthInitialized(true);
     };
 
-    let active = true;
+    // ✅ IMPORTANT: initialize immediately (prevents infinite loading loop)
+    supabase.auth.getSession().then(({ data }) => {
+      resolveUserFromSession(data.session);
+    });
 
-    // FIX: Cast to 'any' to bypass Supabase auth method type errors, likely from an environment configuration issue.
-    const { data: { subscription } } = (supabase.auth as any).onAuthStateChange(
-      async (_event: string, session: any) => {
-        if (!active) return;
-        await resolveUserFromSession(session);
-        setAuthInitialized(true);
-      }
-    );
+    const { data: { subscription } } =
+      supabase.auth.onAuthStateChange((_event, session) => {
+        resolveUserFromSession(session);
+      });
 
     return () => {
       active = false;
@@ -117,20 +77,19 @@ useEffect(() => {
         isMock: true,
       });
     }
+
     if (role === 'stylist') {
-        // This is a simplified mock login. A real app would fetch stylist data.
-        setUser({
-            id: specificId || 'stylist_mock',
-            name: `Stylist ${specificId || ''}`.trim(),
-            role: 'stylist',
-            isMock: true
-        });
+      setUser({
+        id: specificId || 'stylist_mock',
+        name: `Stylist ${specificId || ''}`.trim(),
+        role: 'stylist',
+        isMock: true,
+      });
     }
   };
 
   const logout = async () => {
     if (supabase) {
-      // FIX: Cast to 'any' to bypass Supabase auth method type errors, likely from an environment configuration issue.
       const { error } = await (supabase.auth as any).signOut();
       if (error) console.error('Error signing out:', error);
     }
