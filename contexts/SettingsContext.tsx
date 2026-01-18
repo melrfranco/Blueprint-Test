@@ -46,6 +46,7 @@ interface SettingsContextType {
 
   loadingTeam: boolean;
   teamError: string | null;
+  needsSquareConnect: boolean;
 
   updateServices: (services: Service[]) => void;
   updateLevels: (levels: StylistLevel[]) => void;
@@ -117,6 +118,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const [loadingTeam, setLoadingTeam] = useState(false);
   const [teamError, setTeamError] = useState<string | null>(null);
+  const [needsSquareConnect, setNeedsSquareConnect] = useState<boolean>(false);
 
   // Load data once per auth session; no loops, no state that triggers re-subscribe.
   useEffect(() => {
@@ -130,7 +132,26 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       if (cancelled) return;
 
       const user = userResp?.user;
-      if (userErr || !user) return;
+      if (userErr || !user) {
+        setNeedsSquareConnect(false);
+        return;
+      }
+
+      // --- Check Square Connection Status ---
+      const { data: merchantSettings, error: msError } = await supabase
+        .from('merchant_settings')
+        .select('square_access_token')
+        .eq('supabase_user_id', user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (msError) {
+        console.error('[Settings] Failed to load merchant settings:', msError);
+        setNeedsSquareConnect(true); // Fail-safe
+      } else {
+        setNeedsSquareConnect(!merchantSettings?.square_access_token);
+      }
 
       // ---- Clients: scoped by supabase_user_id (avoids loading everyone)
       try {
@@ -223,6 +244,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
         setStylists([]);
         setLoadingTeam(false);
         setTeamError(null);
+        setNeedsSquareConnect(false);
       }
     });
 
@@ -406,6 +428,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       pinnedReports,
       loadingTeam,
       teamError,
+      needsSquareConnect,
       updateServices,
       updateLevels,
       updateStylists,
@@ -435,6 +458,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       pinnedReports,
       loadingTeam,
       teamError,
+      needsSquareConnect,
     ]
   );
 

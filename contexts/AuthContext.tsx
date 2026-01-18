@@ -1,14 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import type { User, UserRole } from '../types';
 import { supabase } from '../lib/supabase';
-import { isSquareTokenMissing } from '../services/squareIntegration';
 
 interface AuthContextType {
   user: User | null;
   login: (role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
   authInitialized: boolean;
-  needsSquareConnect: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -16,7 +14,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [authInitialized, setAuthInitialized] = useState(false);
-  const [needsSquareConnect, setNeedsSquareConnect] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -29,7 +26,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (!sessionUser) {
         setUser(null);
-        setNeedsSquareConnect(false);
         setAuthInitialized(true);
         return;
       }
@@ -38,12 +34,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (role !== 'admin') {
         setUser(null);
-        setNeedsSquareConnect(false);
         setAuthInitialized(true);
         return;
       }
 
-      // ✅ ADMIN IS LOGGED IN
       setUser({
         id: sessionUser.id,
         name: business_name || 'Admin',
@@ -51,10 +45,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         email: sessionUser.email,
         isMock: false,
       });
-
-      // 🔑 THIS IS THE MISSING LOGIC
-      setNeedsSquareConnect(isSquareTokenMissing());
-
       setAuthInitialized(true);
     };
 
@@ -71,14 +61,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const login = async (role: UserRole) => {
-    if (role === 'admin') {
-      setUser({
-        id: 'admin',
-        name: 'Admin',
-        role: 'admin',
+    // Mock login is only for non-admin roles now.
+    // Admin login MUST go through the real Square OAuth flow.
+    if (role === 'stylist') {
+       setUser({
+        id: 'stylist-mock',
+        name: 'Stylist',
+        role: 'stylist',
         isMock: true,
       });
-      setNeedsSquareConnect(true);
       setAuthInitialized(true);
     }
   };
@@ -86,7 +77,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const logout = async () => {
     await supabase.auth.signOut();
     setUser(null);
-    setNeedsSquareConnect(false);
   };
 
   return (
@@ -96,7 +86,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         login,
         logout,
         authInitialized,
-        needsSquareConnect,
       }}
     >
       {children}

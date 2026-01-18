@@ -10,7 +10,7 @@ import { SettingsProvider } from './contexts/SettingsContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PlanProvider } from './contexts/PlanContext';
 
-import { isSquareTokenMissing } from './services/squareIntegration';
+import { useSettings } from './contexts/SettingsContext';
 
 import './styles/accessibility.css';
 
@@ -21,41 +21,27 @@ const AppContent: React.FC = () => {
   const { user, login, logout, authInitialized } = useAuth();
   const { needsSquareConnect } = useSettings();
 
-  console.log('[APP CONTENT STATE]', {
-    authInitialized,
-    user,
-    needsSquareConnect,
-  });
-
-  // 1️⃣ Wait for auth to resolve
   if (!authInitialized) {
     return (
-      <div className="flex items-center justify-center h-screen bg-brand-bg">
-        <div className="w-16 h-16 border-4 border-brand-accent border-t-transparent rounded-full animate-spin"></div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin h-10 w-10 border-4 border-gray-300 border-t-transparent rounded-full" />
       </div>
     );
   }
 
-  // 2️⃣ Not logged in → login screen
   if (!user) {
     return <LoginScreen onLogin={login} />;
   }
 
-  // 3️⃣ Logged in BUT Square not connected → FORCE Square OAuth
   if (needsSquareConnect) {
     return <MissingCredentialsScreen />;
   }
 
-  // 4️⃣ Normal dashboard
-  const role: UserRole = user.role;
-
-  switch (role) {
-    case 'stylist':
-      return <StylistDashboard onLogout={logout} role="stylist" />;
-
+  switch (user.role) {
     case 'admin':
       return <AdminDashboard role="admin" />;
-
+    case 'stylist':
+      return <StylistDashboard onLogout={logout} role="stylist" />;
     default:
       return <LoginScreen onLogin={login} />;
   }
@@ -67,21 +53,6 @@ const AppContent: React.FC = () => {
 /* ----------------------------- */
 
 const App: React.FC = () => {
-  /*
-    CRITICAL FIX:
-    isSquareTokenMissing is a boolean constant.
-    It MUST NOT be called as a function.
-  */
-  // FIX: `isSquareTokenMissing` is a boolean constant, not a function.
-  if (false && isSquareTokenMissing) {
-
-    return (
-      <SettingsProvider>
-        <MissingCredentialsScreen />
-      </SettingsProvider>
-    );
-  }
-
   return (
     <SettingsProvider>
       <AuthProvider>

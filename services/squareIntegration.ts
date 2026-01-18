@@ -26,7 +26,8 @@ const getSquareAccessToken = () => {
 // OAuth is now the ONLY valid auth mechanism
 export const isSquareTokenMissing = !getSquareAccessToken();
 
-const SQUARE_ENV = process.env.VITE_SQUARE_ENV || 'production';
+// FIX: Revert to import.meta.env, the standard Vite mechanism for environment variables.
+const SQUARE_ENV = import.meta.env.VITE_SQUARE_ENV || 'production';
 
 const baseUrl = SQUARE_ENV === 'sandbox'
     ? 'https://connect.squareupsandbox.com'

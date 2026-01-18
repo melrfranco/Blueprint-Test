@@ -1,9 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-// FIX: Cast import.meta to any to resolve TypeScript error in environments where Vite client types are not available.
-const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
-// FIX: Cast import.meta to any to resolve TypeScript error in environments where Vite client types are not available.
-const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+// FIX: Revert to import.meta.env, the standard Vite mechanism for environment variables.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 // FIX: Renamed to avoid redeclaring the exported 'supabase' const.
 let supabaseInstance: SupabaseClient | null = null;

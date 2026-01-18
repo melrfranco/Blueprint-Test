@@ -1,15 +1,15 @@
 import React from 'react';
 
 const MissingCredentialsScreen = () => {
-  // FIX: Cast import.meta to any to resolve TypeScript error in environments where Vite client types are not available.
+  // FIX: Revert to import.meta.env, the standard Vite mechanism for environment variables.
   const squareAppId =
-    (import.meta as any).env.VITE_SQUARE_APPLICATION_ID ||
-    (import.meta as any).env.VITE_SQUARE_CLIENT_ID;
-  const squareRedirectUri = (import.meta as any).env.VITE_SQUARE_REDIRECT_URI;
-  const squareEnv = ((import.meta as any).env.VITE_SQUARE_ENV || 'production').toLowerCase();
+    import.meta.env.VITE_SQUARE_APPLICATION_ID ||
+    import.meta.env.VITE_SQUARE_CLIENT_ID;
+  const squareRedirectUri = import.meta.env.VITE_SQUARE_REDIRECT_URI;
+  const squareEnv = (import.meta.env.VITE_SQUARE_ENV || 'production').toLowerCase();
 
   const scopes =
-    ((import.meta as any).env.VITE_SQUARE_OAUTH_SCOPES as string | undefined) ??
+    (import.meta.env.VITE_SQUARE_OAUTH_SCOPES as string | undefined) ??
     'MERCHANT_PROFILE_READ EMPLOYEES_READ ITEMS_READ CUSTOMERS_READ CUSTOMERS_WRITE APPOINTMENTS_READ APPOINTMENTS_ALL_READ APPOINTMENTS_WRITE SUBSCRIPTIONS_READ SUBSCRIPTIONS_WRITE';
 
   const startOAuth = () => {
