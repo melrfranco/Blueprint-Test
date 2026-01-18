@@ -17,51 +17,50 @@ import './styles/accessibility.css';
 /* ----------------------------- */
 /* App Content (Auth-aware UI)   */
 /* ----------------------------- */
-
 const AppContent: React.FC = () => {
   const { user, login, logout, authInitialized } = useAuth();
+  const { needsSquareConnect } = useSettings();
 
   console.log('[APP CONTENT STATE]', {
     authInitialized,
     user,
+    needsSquareConnect,
   });
 
-  /*
-    IMPORTANT:
-    Never block rendering forever.
-    If auth hasn't initialized yet, show login instead of spinner.
-  */
+  // 1️⃣ Wait for auth to resolve
   if (!authInitialized) {
-    return <LoginScreen onLogin={login} />;
+    return (
+      <div className="flex items-center justify-center h-screen bg-brand-bg">
+        <div className="w-16 h-16 border-4 border-brand-accent border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
   }
 
+  // 2️⃣ Not logged in → login screen
   if (!user) {
     return <LoginScreen onLogin={login} />;
   }
 
-  const renderDashboard = () => {
-    const role: UserRole = user.role;
+  // 3️⃣ Logged in BUT Square not connected → FORCE Square OAuth
+  if (needsSquareConnect) {
+    return <MissingCredentialsScreen />;
+  }
 
-    switch (role) {
-      case 'stylist':
-        return <StylistDashboard onLogout={logout} role="stylist" />;
+  // 4️⃣ Normal dashboard
+  const role: UserRole = user.role;
 
-      case 'admin':
-        return <AdminDashboard role="admin" />;
+  switch (role) {
+    case 'stylist':
+      return <StylistDashboard onLogout={logout} role="stylist" />;
 
-      default:
-        return <LoginScreen onLogin={login} />;
-    }
-  };
+    case 'admin':
+      return <AdminDashboard role="admin" />;
 
-  return (
-    <div className="bg-brand-bg min-h-screen">
-      <div className="max-w-md mx-auto bg-white shadow-lg min-h-screen relative">
-        {renderDashboard()}
-      </div>
-    </div>
-  );
+    default:
+      return <LoginScreen onLogin={login} />;
+  }
 };
+
 
 /* ----------------------------- */
 /* Root App Wrapper              */
